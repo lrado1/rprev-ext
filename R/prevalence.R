@@ -208,17 +208,26 @@ prevalence <- function(index, num_years_to_estimate,
         registry_start_date <- min(data[[incident_column]])
     }
 
-    index <- suppressWarnings(lubridate::ymd(index))
-    if (is.na(index)) {
-        stop("Error: Index date '", index, "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format.")
+    index_dates <- suppressWarnings(lubridate::ymd(index))
+    if (anyNA(index_dates)) {
+        bad_inputs <- index[is.na(index_dates)]
+        stop(
+            "Error: Index date(s) '",
+            paste(bad_inputs, collapse = ", "),
+            "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format."
+        )
     }
+    index_dates <- sort(unique(index_dates))
+    K <- length(index_dates)
+    index <- index_dates[length(index_dates)]
     registry_start_date <- lubridate::ymd(registry_start_date)
-    sim_start_date <- index - lubridate::years(max(num_years_to_estimate))
+    sim_start_date <- min(index_dates) - lubridate::years(max(num_years_to_estimate))
 
-    # NEED SIMULATION:
+    # NEED SIMULATION if registry window is too short OR counted prevalence cannot be computed    
     #   - have N years > R registry years available
     #   - haven't provided date of death for registry data (not always available)
-    if (!((sim_start_date >= registry_start_date) & (!is.null(death_column)))) {
+    can_count_registry <- (sim_start_date >= registry_start_date) && !is.null(counted_formula)
+    if (!can_count_registry) {
 
         # Incidence models
         if (is.null(inc_model) & is.null(inc_formula)) {
@@ -244,22 +253,45 @@ prevalence <- function(index, num_years_to_estimate,
             surv_model <- build_survreg(surv_formula, data, dist)
         }
 
-        prev_sim <- sim_prevalence(data, index, sim_start_date,
-                                   inc_model, surv_model,
+        prev_sim <- sim_prevalence(data=data,
+                                   index=index,
+                                   index_dates=index_dates,
+                                   starting_date=sim_start_date,
+                                   inc_model=inc_model,
+                                   surv_model=surv_model,
                                    age_column=age_column,
                                    age_dead=age_dead,
                                    N_boot=N_boot)
 
         # Create column indicating whether contributed to prevalence for each year of interest
-        for (year in num_years_to_estimate) {
-            # Determine starting incident date
-            starting_incident_date <- index - lubridate::years(year)
+        if (K == 1) {
+            for (year in num_years_to_estimate) {
+                # Determine starting incident date
+                starting_incident_date <- index - lubridate::years(year)
 
-            # We'll create a new column to hold a binary indicator of whether that observation contributes to prevalence
-            col_name <- paste0("prev_", year, "yr")
+                # We'll create a new column to hold a binary indicator of whether that observation contributes to prevalence
+                col_name <- paste0("prev_", year, "yr")
 
-            # Determine prevalence as incident date is in range and alive at index date
-            prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index) & alive_at_index)]
+                # Determine prevalence as incident date is in range and alive at index date
+                prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index) & alive_at_index)]
+            }
+        } else {
+            # Legacy columns for last index to keep K=1 pipeline behavior until multi-index estimates land.
+            for (year in num_years_to_estimate) {
+                starting_incident_date <- index - lubridate::years(year)
+                col_name <- paste0("prev_", year, "yr")
+                prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index) & alive_at_index)]
+            }
+
+            if (all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
+                prev_sim$prev_counts <- build_prev_counts_multiindex(prev_sim$results,
+                                                                     index_dates,
+                                                                     num_years_to_estimate)
+            } else {
+                # TODO: Enable prev_counts once sim_prevalence returns k_start/k_end.
+                prev_sim$prev_counts <- NULL
+            }
+            prev_sim$index_dates <- index_dates
         }
 
     } else {
@@ -347,6 +379,69 @@ prevalence <- function(index, num_years_to_estimate,
 
 }
 
+# Build prevalence counts across multiple index dates from interval contributions.
+build_prev_counts_multiindex <- function(results, index_dates, years) {
+    # Needed for CRAN check
+    delta <- incident_date <- k <- k_end <- k_start <- prev_count <- sim <- year <- NULL
+
+    required <- c("sim", "incident_date", "k_start", "k_end")
+    missing_cols <- setdiff(required, colnames(results))
+    if (length(missing_cols) > 0) {
+        stop("Error: missing columns in results: ", paste(missing_cols, collapse = ", "))
+    }
+
+    if (length(index_dates) == 0 || length(years) == 0 || nrow(results) == 0) {
+        return(data.table::data.table(sim=integer(),
+                                      year=integer(),
+                                      k=integer(),
+                                      prev_count=integer()))
+    }
+
+    idx_dates <- as.Date(index_dates)
+    K <- length(idx_dates)
+
+    dt <- data.table::as.data.table(results)[, ..required]
+    dt[, incident_date := as.Date(incident_date)]
+
+    # Expand by year (sim, case) x year.
+    dt_exp <- dt[rep(seq_len(nrow(dt)), each = length(years))]
+    dt_exp[, year := rep(years, times = nrow(dt))]
+
+    # Strict window: incident_date < t_k and incident_date > t_k - years(year).
+    k_inc_start <- findInterval(dt_exp$incident_date, idx_dates) + 1L
+    inc_end_date <- dt_exp$incident_date + lubridate::years(dt_exp$year)
+    k_inc_end <- findInterval(inc_end_date - 1, idx_dates)
+
+    k_contrib_start <- pmax(dt_exp$k_start, k_inc_start)
+    k_contrib_end <- pmin(dt_exp$k_end, k_inc_end)
+
+    valid <- !is.na(k_contrib_start) & !is.na(k_contrib_end) &
+        k_contrib_start <= k_contrib_end &
+        k_contrib_start <= K & k_contrib_end >= 1L
+
+    if (!any(valid)) {
+        return(data.table::data.table(sim=integer(),
+                                      year=integer(),
+                                      k=integer(),
+                                      prev_count=integer()))
+    }
+
+    events <- data.table::rbindlist(list(
+        dt_exp[valid, .(sim, year, k = k_contrib_start, delta = 1L)],
+        dt_exp[valid & k_contrib_end < K, .(sim, year, k = k_contrib_end + 1L, delta = -1L)]
+    ), use.names = TRUE)
+
+    events <- events[, .(delta = sum(delta)), by = .(sim, year, k)]
+
+    grid <- data.table::CJ(sim = unique(dt$sim), year = years, k = seq_len(K))
+    grid <- events[grid, on = .(sim, year, k)]
+    grid[is.na(delta), delta := 0L]
+    data.table::setorder(grid, sim, year, k)
+    grid[, prev_count := cumsum(delta), by = .(sim, year)]
+    grid[, delta := NULL]
+    grid
+}
+
 #' Count prevalence from registry data.
 #'
 #' Counts contribution to prevalence at a specific index from each year of a
@@ -396,7 +491,7 @@ counted_prevalence <- function(formula, index, data, start_date, status_col) {
 #'   \item{surv_models}{A list containing survival models built on each bootstrap sample.}
 #'   \item{inc_models}{A list containing incidence models built on each bootstrap sample.}
 #' @importFrom survival survfit
-sim_prevalence <- function(data, index, starting_date,
+sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
                            inc_model, surv_model,
                            age_column='age',
                            N_boot=1000,
@@ -406,6 +501,10 @@ sim_prevalence <- function(data, index, starting_date,
     # Needed for CRAN check
     alive_at_index <- NULL
     time_to_index <- NULL
+
+    if (is.null(index_dates)) {
+        index_dates <- index
+    }
 
     data <- data[complete.cases(data), ]
     full_data <- data

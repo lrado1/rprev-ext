@@ -204,3 +204,16 @@ test_that("prevalence function handles incorrectly specified inputs", {
                               death_column='event',
                               N_boot = 15))
 })
+
+test_that("build_prev_counts_multiindex respects strict incident window", {
+    index_dates <- as.Date(c("2020-01-01", "2020-02-01", "2020-03-01"))
+    results <- data.table::data.table(sim = 1L,
+                                      incident_date = as.Date("2020-01-15"),
+                                      k_start = 1L,
+                                      k_end = 3L)
+
+    counts <- rprev:::build_prev_counts_multiindex(results, index_dates, years = 1)
+    prev_vec <- counts[sim == 1 & year == 1][order(k)]$prev_count
+
+    expect_equal(prev_vec, c(0, 1, 1))
+})
