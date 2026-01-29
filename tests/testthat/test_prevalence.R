@@ -9,14 +9,14 @@ test_that("prevalence outputs the same values as before", {
     # Build models
     suppressWarnings(RNGversion("3.5.0"))
     set.seed(17)
-    counted_nonstrat <- prevalence(index="2013-01-01",
+    counted_nonstrat <- prevalence(index_dates="2013-01-01",
                                    num_years_to_estimate = c(5, 8),
                                    data=prevsim,
                                    inc_formula=entrydate ~ 1,
                                    surv_formula=Surv(time, status) ~ 1,
                                    dist='weibull',
                                    death_column='eventdate')
-    wei_nonstrat <- prevalence(index="2013-01-01",
+    wei_nonstrat <- prevalence(index_dates="2013-01-01",
                                num_years_to_estimate = 20,
                                data=prevsim,
                                inc_formula=entrydate ~ 1,
@@ -24,7 +24,7 @@ test_that("prevalence outputs the same values as before", {
                                dist='weibull',
                                death_column='eventdate',
                                N_boot = 10)
-    wei_strat <- prevalence(index="2013-01-01",
+    wei_strat <- prevalence(index_dates="2013-01-01",
                             num_years_to_estimate = 20,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -32,7 +32,7 @@ test_that("prevalence outputs the same values as before", {
                             dist='weibull',
                             death_column='eventdate',
                             N_boot = 10)
-    wei_agesex <- prevalence(index="2013-01-01",
+    wei_agesex <- prevalence(index_dates="2013-01-01",
                              num_years_to_estimate = 20,
                              data=prevsim,
                              inc_formula=entrydate ~ sex,
@@ -40,7 +40,7 @@ test_that("prevalence outputs the same values as before", {
                              dist='weibull',
                              death_column='eventdate',
                              N_boot = 10)
-    lnorm_age <- prevalence(index="2013-01-01",
+    lnorm_age <- prevalence(index_dates="2013-01-01",
                             num_years_to_estimate = 17,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -48,7 +48,7 @@ test_that("prevalence outputs the same values as before", {
                             dist='lognormal',
                             death_column='eventdate',
                             N_boot = 10)
-    lnorm_sex <- prevalence(index="2013-01-01",
+    lnorm_sex <- prevalence(index_dates="2013-01-01",
                             num_years_to_estimate = 13,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -56,7 +56,7 @@ test_that("prevalence outputs the same values as before", {
                             dist='lognormal',
                             death_column='eventdate',
                             N_boot = 5)
-    exp_full <- prevalence(index="2013-01-01",
+    exp_full <- prevalence(index_dates="2013-01-01",
                            num_years_to_estimate = 13,
                            data=prevsim,
                            inc_formula=entrydate ~ sex,
@@ -64,7 +64,7 @@ test_that("prevalence outputs the same values as before", {
                            dist='exponential',
                            death_column='eventdate',
                            N_boot = 20)
-    exp_sex <- prevalence(index="2013-01-01",
+    exp_sex <- prevalence(index_dates="2013-01-01",
                            num_years_to_estimate = 13,
                            data=prevsim,
                            inc_formula=entrydate ~ sex,
@@ -105,7 +105,7 @@ test_that("prevalence outputs the same values as before", {
 
 test_that("prevalence function handles incorrectly specified inputs", {
     # Index date isn't formatted as date
-    expect_error(prevalence(index="201311",
+    expect_error(prevalence(index_dates="201311",
                             num_years_to_estimate = 13,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -115,7 +115,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             N_boot = 15))
 
     # Incorrect specification of num_years_to_estimate
-    expect_warning(prevalence(index="20130101",
+    expect_warning(prevalence(index_dates="20130101",
                               num_years_to_estimate = -10,
                               data=prevsim,
                               inc_formula=entrydate ~ sex,
@@ -125,7 +125,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                               N_boot = 15))
 
     # Incidence formula containing variables that aren't in the data set
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entry ~ 1,
@@ -133,7 +133,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             dist='exponential',
                             death_column='eventdate',
                             N_boot = 15))
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entrydate ~ Sex,
@@ -143,7 +143,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             N_boot = 15))
 
     # Survival formula containing variables that aren't in the data set
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entrydate ~ 1,
@@ -151,7 +151,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             dist='exponential',
                             death_column='eventdate',
                             N_boot = 15))
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -159,7 +159,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             dist='exponential',
                             death_column='eventdate',
                             N_boot = 15))
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -169,7 +169,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             N_boot = 15))
 
     # Distribution isn't in accepted list
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -177,7 +177,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             dist='exponental',
                             death_column='eventdate',
                             N_boot = 15))
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -185,7 +185,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             dist='gompertz',
                             death_column='eventdate',
                             N_boot = 15))
-    expect_error(prevalence(index="20130101",
+    expect_error(prevalence(index_dates="20130101",
                             num_years_to_estimate = 15,
                             data=prevsim,
                             inc_formula=entrydate ~ sex,
@@ -195,7 +195,7 @@ test_that("prevalence function handles incorrectly specified inputs", {
                             N_boot = 15))
 
     # Death column incorrectly specified
-    expect_warning(prevalence(index="20130101",
+    expect_warning(prevalence(index_dates="20130101",
                               num_years_to_estimate = 15,
                               data=prevsim,
                               inc_formula=entrydate ~ sex,

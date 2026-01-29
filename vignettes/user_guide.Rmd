@@ -70,10 +70,10 @@ The default survival model assumes that event times follow a standard parametric
 
 ## Estimating prevalence
 
-The function call for estimating prevalence in the `prevsim` data set using the default incidence and survival models is shown below. Aside from the arguments specifying these two processes, there are a number of prevalence-specific parameters. `index_date` specifies the date at which to estimate point prevalence with `num_years_to_estimate` detailing the required number of years preceding the index date that contribute incident cases. If any values are larger than the number of available complete years of registry data then incident cases over the remaining time are simulated. By passing a vector to `num_years_to_estimate`, multiple estimates of prevalence at the index date can be calculated with their own confidence intervals. The `death_column` parameter accepts the name of the column in the registry data set that holds date of death information. Its presence is required to count prevalence over the registry duration, if it isn’t provided then the entire prevalence estimate is calculated by simulation. The optional `population_size` argument is used to provide relative rates estimates. 
+The function call for estimating prevalence in the `prevsim` data set using the default incidence and survival models is shown below. Aside from the arguments specifying these two processes, there are a number of prevalence-specific parameters. `index_dates` specifies the date at which to estimate point prevalence with `num_years_to_estimate` detailing the required number of years preceding the index date that contribute incident cases. If any values are larger than the number of available complete years of registry data then incident cases over the remaining time are simulated. By passing a vector to `num_years_to_estimate`, multiple estimates of prevalence at the index date can be calculated with their own confidence intervals. The `death_column` parameter accepts the name of the column in the registry data set that holds date of death information. Its presence is required to count prevalence over the registry duration, if it isn’t provided then the entire prevalence estimate is calculated by simulation. The optional `population_size` argument is used to provide relative rates estimates. 
 
 ```{r}
-prevalence_total <- prevalence(index='2013-01-30', 
+prevalence_total <- prevalence(index_dates='2013-01-30', 
                                num_years_to_estimate=c(3, 5, 10, 20), 
                                data=prevsim, 
                                inc_formula = entrydate ~ sex,
@@ -121,7 +121,7 @@ llog
 Now, the `surv_model` argument is used to pass in the survival model directly, rather than specifying `surv_formula` and `dist` as before. It must be emphasized that the runtime significantly increases when using a `flexsurv` object as they have not been optimized for use in `rprev`, however, they provide greater flexibility in the survival modelling. For example, the user can compare different survival models in the familiar `flexsurv` framework before using the final object in estimating prevalence.
 
 ```{r, cache=T}
-prev_llog <- prevalence(index='2013-01-30', 
+prev_llog <- prevalence(index_dates='2013-01-30', 
                         num_years_to_estimate=c(3, 5, 10, 20), 
                         data=prevsim, 
                         inc_formula = entrydate ~ sex,
@@ -153,7 +153,7 @@ fix_cure_mod <- fixed_cure(Surv(time, status) ~ age + sex, data=prevsim, cure_ti
 Use of a fixed cure model here has increased the prevalence as patients are reverting back to population levels of survival. However, note that incorporating the population survival rates adds considerable computational expense, in the example below only 30 simulations are being run.
 
 ```{r}
-prevalence(index='2013-01-30', 
+prevalence(index_dates='2013-01-30', 
            num_years_to_estimate=20, 
            data=prevsim, 
            inc_formula = entrydate ~ sex,
@@ -176,7 +176,7 @@ mixture_cure <- flexsurvcure::flexsurvcure(Surv(time, status) ~ age + sex, data=
 ```
 
 ```{r}
-prevalence(index='2013-01-30', 
+prevalence(index_dates='2013-01-30', 
            num_years_to_estimate=20, 
            data=prevsim, 
            inc_formula = entrydate ~ sex,
@@ -328,7 +328,7 @@ head(inc_times)
 Once the object has been validated, it can be used in `prevalence` through the `inc_model` argument. Note that an additional argument is required to provide the name of the column in the data set that provides the incident dates, since this is no longer provided by the unused `inc_formula` option.
 
 ```{r}
-prevalence(index='2013-01-30', 
+prevalence(index_dates='2013-01-30', 
            num_years_to_estimate=c(3, 5, 10, 20), 
            data=prevsim, 
            inc_model = pois_mod,
@@ -433,7 +433,7 @@ head(probs)
 Plugging this model into the `prevalence` function now works.
 
 ```{r}
-prevalence(index='2013-01-30', 
+prevalence(index_dates='2013-01-30', 
            num_years_to_estimate=c(3, 5, 10, 20), 
            data=prevsim, 
            inc_formula = entrydate ~ 1,

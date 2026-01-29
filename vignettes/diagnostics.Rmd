@@ -163,7 +163,7 @@ mod_spline
 As a reminder, prevalence is estimated using incidence and survival data from *n* years. However, registry data (and thus known incidence and survival) data may only be known for *r* years, where *r* <= *n*. If *r* < *n*, the remaining *n*-*r* years of incidence and survival are simulated using Monte Carlo techniques. If the incidence and survival models are well specified then the prevalence estimates should be reliable, however, it is beneficial to check the performance of these bootstrapped models (their variance in particular) before drawing any conclusions from the results. 
 
 ```{r prevalencetotal, error = TRUE}
-prevalence_total <- prevalence(index='2013-01-30', 
+prevalence_total <- prevalence(index_dates='2013-01-30', 
                                num_years_to_estimate=c(3, 5, 10, 20), 
                                data=prevsim, 
                                inc_formula = entrydate ~ sex,

@@ -1,10 +1,10 @@
-new_point_estimate <- function(year, sim_results, index, registry_data, prev_formula, registry_start_date, status_col,
+new_point_estimate <- function(year, sim_results, index_dates, registry_data, prev_formula, registry_start_date, status_col,
                                population_size=NULL, proportion=1e5,
                                level=0.95, precision=2) {
-    if (length(index) > 1) {
+    if (length(index_dates) > 1) {
         return(new_point_estimate_multiindex(year=year,
                                              sim_agg=sim_results,
-                                             index_dates=index,
+                                             index_dates=index_dates,
                                              registry_data=registry_data,
                                              prev_formula=prev_formula,
                                              registry_start_date=registry_start_date,
@@ -25,12 +25,13 @@ new_point_estimate <- function(year, sim_results, index, registry_data, prev_for
     sim <- NULL
 
     # See if need simulation if have less registry data than required
-    initial_date <- index - lubridate::years(year)
+    index_ref <- index_dates[1]
+    initial_date <- index_ref - lubridate::years(year)
     need_simulation <- initial_date < registry_start_date
 
     # Only count prevalence if formula isn't null
     if (!is.null(prev_formula)) {
-        count_prev <- counted_prevalence(prev_formula, index, registry_data, max(initial_date, registry_start_date), status_col)
+        count_prev <- counted_prevalence(prev_formula, index_ref, registry_data, max(initial_date, registry_start_date), status_col)
 
         # See if appending prevalence to simulation data or it's entirely counted
         if (initial_date < registry_start_date) {
@@ -93,7 +94,7 @@ new_point_estimate_multiindex <- function(year,
                                           N_boot=NULL) {
     if (year <= 0) {
         warning("Cannot estimate prevalence for a non-positive value of num_year_to_estimate.")
-        return(data.frame(index_date=index_dates, absolute.prevalence=0))
+        return(data.frame(index_dates=index_dates, absolute.prevalence=0))
     }
 
     if (length(index_dates) < 1) {
@@ -105,13 +106,13 @@ new_point_estimate_multiindex <- function(year,
 
     if (!is.null(sim_agg)) {
         sim_agg <- as.data.frame(sim_agg)
-        required <- c("sim", "index_date", "year", "contrib_total")
+        required <- c("sim", "index_dates", "year", "contrib_total")
         missing_cols <- setdiff(required, names(sim_agg))
         if (length(missing_cols) > 0) {
             stop("Error: sim_agg missing required columns: ", paste(missing_cols, collapse=", "))
         }
-        if (!inherits(sim_agg$index_date, "Date")) {
-            sim_agg$index_date <- as.Date(sim_agg$index_date)
+        if (!inherits(sim_agg$index_dates, "Date")) {
+            sim_agg$index_dates <- as.Date(sim_agg$index_dates)
         }
         if (is.null(N_boot) && nrow(sim_agg) > 0) {
             N_boot <- max(sim_agg$sim)
@@ -154,7 +155,7 @@ new_point_estimate_multiindex <- function(year,
         if (is.null(sim_agg)) {
             stop("Error: sim_agg is required for simulation contributions.")
         }
-        sub <- sim_agg[sim_agg$year == year & sim_agg$index_date == idx_date, c("sim", col_name)]
+        sub <- sim_agg[sim_agg$year == year & sim_agg$index_dates == idx_date, c("sim", col_name)]
         contribs <- rep(0, N_boot)
         if (nrow(sub) > 0) {
             contribs[sub$sim] <- sub[[col_name]]
@@ -178,7 +179,7 @@ new_point_estimate_multiindex <- function(year,
             se_func <- build_se_func(counted_contribs=count_prev_vec[i])
         }
 
-        row <- data.frame(index_date=index_k, absolute.prevalence=the_estimate)
+        row <- data.frame(index_dates=index_k, absolute.prevalence=the_estimate)
         if (!is.null(population_size)) {
             the_proportion <- (the_estimate / population_size) * proportion
             se <- se_func(population_size)

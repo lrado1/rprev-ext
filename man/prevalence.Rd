@@ -5,7 +5,7 @@
 \title{Estimate point prevalence at an index date.}
 \usage{
 prevalence(
-  index,
+  index_dates,
   num_years_to_estimate,
   data,
   inc_formula = NULL,
@@ -27,13 +27,13 @@ prevalence(
 )
 }
 \arguments{
-\item{index}{The date at which to estimate point prevalence as a string in the format
+\item{index_dates}{The date(s) at which to estimate point prevalence as a string in the format
 YYYY-MM-DD.}
 
 \item{num_years_to_estimate}{Number of years of data to consider when
 estimating point prevalence; multiple values can be specified in a vector.
 If any values are greater than the number of years of registry data
-available before \code{index_date}, incident cases
+available before the requested \code{index_dates}, incident cases
 for the difference will be simulated.}
 
 \item{data}{A data frame with the corresponding column names provided in
@@ -105,7 +105,7 @@ A \code{prevalence} object containing the following attributes:
   \item{full_inc_model}{The incidence model built on the complete registry data set.}
   \item{surv_models}{A list of the survival models fitted to each bootstrap iteration.}
   \item{inc_models}{A list of the incidence models fitted to each bootstrap iteration.}
-  \item{index_date}{The index date.}
+  \item{index_dates}{The index date(s).}
   \item{est_years}{The years at which prevalence is estimated at.}
   \item{counted_incidence_rate}{The overall incidence rate in the registry data set.}
   \item{registry_start}{The date the registry was identified at starting at.}
@@ -163,7 +163,7 @@ data(prevsim)
 \dontrun{
 data(prevsim)
 
-prevalence(index='2013-01-30',
+prevalence(index_dates='2013-01-30',
            num_years_to_estimate=c(3, 5, 10, 20),
            data=prevsim,
            inc_formula = entrydate ~ sex,

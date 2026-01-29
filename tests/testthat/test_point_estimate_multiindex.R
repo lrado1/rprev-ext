@@ -4,7 +4,7 @@ test_that("new_point_estimate_multiindex handles sim-only estimates", {
     idx <- as.Date(c("2020-01-10", "2020-02-10"))
     sim_agg <- data.frame(
         sim=c(1, 2, 1, 2),
-        index_date=rep(idx, each=2),
+        index_dates=rep(idx, each=2),
         year=1,
         contrib_total=c(4, 6, 2, 4),
         contrib_pre_registry=c(1, 1, 1, 1)
@@ -24,7 +24,7 @@ test_that("new_point_estimate_multiindex combines counted and pre-registry sim",
     idx <- as.Date(c("2020-01-10", "2020-02-10"))
     sim_agg <- data.frame(
         sim=c(1, 2, 1, 2),
-        index_date=rep(idx, each=2),
+        index_dates=rep(idx, each=2),
         year=1,
         contrib_total=c(4, 6, 2, 4),
         contrib_pre_registry=c(2, 4, 0, 0)
@@ -47,7 +47,7 @@ test_that("new_point_estimate_multiindex combines counted and pre-registry sim",
 
 test_that("new_point_estimate_multiindex validates sim_agg columns", {
     idx <- as.Date(c("2020-01-10", "2020-02-10"))
-    sim_bad <- data.frame(sim=1, index_date=idx[1], year=1, contrib_total=1)
+    sim_bad <- data.frame(sim=1, index_dates=idx[1], year=1, contrib_total=1)
     registry_data <- data.frame(
         entry=as.Date("2019-02-10"),
         death=as.Date(NA),

@@ -2,7 +2,7 @@ library(rprev)
 
 test_that("summary.prevalence preserves K=1 output", {
     obj <- list(
-        index_date=as.Date("2020-01-01"),
+        index_dates=as.Date("2020-01-01"),
         est_years=c(5),
         estimates=list(y5=list(absolute.prevalence=10, per100000=2)),
         proportion=100000,
@@ -23,19 +23,18 @@ test_that("summary.prevalence prints multi-index tables", {
     idx <- as.Date(c("2020-01-01", "2020-02-01"))
     obj <- list(
         index_dates=idx,
-        index_date=idx[2],
         est_years=c(3, 5),
         estimates=list(
-            y3=data.frame(index_date=idx,
+            y3=data.frame(index_dates=idx,
                           absolute.prevalence=c(1, 2),
                           per100000=c(10, 20)),
-            y5=data.frame(index_date=idx,
+            y5=data.frame(index_dates=idx,
                           absolute.prevalence=c(3, 4),
                           per100000=c(30, 40))
         ),
         proportion=100000,
         registry_start=as.Date("2019-01-01"),
-        counted_by_index=data.frame(index_date=idx, counted=c(1, 2)),
+        counted_by_index=data.frame(index_dates=idx, counted=c(1, 2)),
         counted_incidence_rate=0.2,
         simulated=NA,
         N_boot=10,
