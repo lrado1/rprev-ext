@@ -722,16 +722,19 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
         k_end[!any_alive] <- NA_integer_
 
         if (!is.null(age_column) & age_column %in% colnames(incident_population)) {
-            too_old_mat <- (incident_population[[age_column]] * DAYS_IN_YEAR + time_to_index_mat) > age_dead * DAYS_IN_YEAR
-            alive_mat <- alive_mat & !too_old_mat
-
-            any_alive <- rowSums(alive_mat) > 0
-            k_start <- ifelse(any_alive, max.col(alive_mat, ties.method="first"), NA_integer_)
-            idx_rev <- max.col(alive_mat[, K:1, drop=FALSE], ties.method="first")
-            k_end <- K - idx_rev + 1
-            k_end[!any_alive] <- NA_integer_
-            alive_at_index <- as.integer(alive_mat[, K])
+            cap_days <- (age_dead - incident_population[[age_column]]) * DAYS_IN_YEAR
+            cap_days[is.na(cap_days)] <- Inf
+            k_age_end <- ifelse(is.infinite(cap_days),
+                                K,
+                                findInterval(incident_date + cap_days, index_dates))
+            k_age_end[cap_days < 0] <- 0
+            k_end <- pmin(k_end, k_age_end)
+            invalid <- is.na(k_start) | is.na(k_end) | k_end < k_start
+            k_start[invalid] <- NA_integer_
+            k_end[invalid] <- NA_integer_
         }
+
+        alive_at_index <- as.integer(!is.na(k_start) & !is.na(k_end) & k_start <= K & k_end >= K)
 
         incident_population[, 'incident_date' := incident_date]
         incident_population[, 'k_start' := k_start]
@@ -789,10 +792,8 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
 
     results <- data.table::rbindlist(pops, idcol='sim', use.names=TRUE, fill=FALSE)
 
-    # Force death at 100 if possible
-    if (!is.null(age_column) & age_column %in% colnames(results) & "time_to_index" %in% colnames(results)) {
-        results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
-    } else if (is.null(age_column) | !age_column %in% colnames(results)) {
+    # Force death at 100 if possible (handled in run_sample); warn once if age unavailable
+    if (is.null(age_column) | !age_column %in% colnames(results)) {
         message("No column found for age in ", age_column, ", so cannot assume death at 100 years of age. Be careful of 'infinite' survival times.")
     }
 
