@@ -883,22 +883,51 @@ summary.prevalence <- function(object, ...) {
     sim <- NULL
     V1 <- NULL
 
+    index_dates <- if (!is.null(object$index_dates)) {
+        object$index_dates
+    } else if (!is.null(object$index_date)) {
+        object$index_date
+    } else {
+        stop("Error: prevalence object missing index_date(s).")
+    }
+    K <- length(index_dates)
+
     cat("Prevalence \n~~~~~~~~~~\n")
     print(object)
     cat("\n")
 
     cat("Registry Data\n~~~~~~~~~~~~~\n")
-    cat("Index date:", as.character(object$index_date), "\n")
+    if (K > 1) {
+        cat("Index dates:", paste0(min(index_dates), " to ", max(index_dates), " (K=", K, ")"), "\n")
+    } else {
+        cat("Index date:", as.character(index_dates), "\n")
+    }
     cat("Start date:", as.character(object$registry_start), "\n")
-    cat("Overall incidence rate:", round(object$counted_incidence_rate, 3), "\n")
-    cat("Counted prevalent cases:", object$counted, "\n")
+    cat("Overall incidence rate:", round(object$counted_incidence_rate, 3), " (per day, up to ", max(index_dates), ")\n")
 
-    if (!all(is.na(object$simulated))) {
+    cat("Counted prevalent cases:\n")
+    if (is.null(object$counted_by_index)) {
+        cat(object$counted, "\n")
+    } else {
+        counted_tbl <- object$counted_by_index
+        if (is.numeric(counted_tbl)) {
+            counted_tbl <- data.frame(index_date=index_dates, counted=counted_tbl)
+        }
+        print(counted_tbl, row.names=FALSE)
+    }
+
+    if (!is.null(object$simulated) && !all(is.na(object$simulated))) {
         cat("\nSimulation\n~~~~~~~~~~\n")
         cat("Iterations:", object$N_boot, "\n")
         cat("Average incidence rate:",
             round(object$simulated[, length(incident_date), by=sim][, mean(V1)] / (max(object$est_years)*DAYS_IN_YEAR), 3),
             "\n")
-        cat("P-value:", object$pval)
+        if (!is.null(object$pval_by_index)) {
+            cat("P-values:\n")
+            p_tbl <- data.frame(index_date=index_dates, p_value=as.numeric(object$pval_by_index))
+            print(p_tbl, row.names=FALSE)
+        } else if (!is.null(object$pval)) {
+            cat("P-value:", object$pval)
+        }
     }
 }
