@@ -5,7 +5,8 @@
 \title{Estimate point prevalence at an index date.}
 \usage{
 prevalence(
-  index_dates,
+  index = NULL,
+  index_dates = NULL,
   num_years_to_estimate,
   data,
   inc_formula = NULL,
@@ -27,6 +28,8 @@ prevalence(
 )
 }
 \arguments{
+\item{index}{Deprecated. Use \code{index_dates} instead.}
+
 \item{index_dates}{The date(s) at which to estimate point prevalence as a string in the format
 YYYY-MM-DD.}
 

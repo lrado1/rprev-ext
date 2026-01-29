@@ -39,6 +39,7 @@ MIN_INCIDENCE <- 10
 #' in \code{surv_formula} and distribution given in \code{dist}. See the vignette for guidance
 #' on providing a custom survival model.
 #'
+#' @param index Deprecated. Use \code{index_dates} instead.
 #' @param index_dates The date(s) at which to estimate point prevalence as a string in the format
 #' YYYY-MM-DD.
 #' @param num_years_to_estimate Number of years of data to consider when
@@ -135,7 +136,7 @@ MIN_INCIDENCE <- 10
 #' @family prevalence functions
 #' @import data.table
 #' @export
-prevalence <- function(index_dates, num_years_to_estimate,
+prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
                        data,
                        inc_formula=NULL,
                        inc_model=NULL,
@@ -208,6 +209,17 @@ prevalence <- function(index_dates, num_years_to_estimate,
         registry_start_date <- min(data[[incident_column]])
     }
 
+    index_provided <- !missing(index) && !is.null(index)
+    index_dates_provided <- !missing(index_dates) && !is.null(index_dates)
+    if (!index_dates_provided) {
+        if (!index_provided) {
+            stop("Error: Please provide 'index_dates'.")
+        }
+        .Deprecated("index", new="index_dates", package="rprev")
+        index_dates <- index
+        index_dates_provided <- TRUE
+    }
+
     raw_index_dates <- index_dates
     index_dates <- suppressWarnings(lubridate::ymd(index_dates))
     if (anyNA(index_dates)) {
@@ -219,6 +231,22 @@ prevalence <- function(index_dates, num_years_to_estimate,
         )
     }
     index_dates <- sort(unique(index_dates))
+    if (index_dates_provided && index_provided) {
+        parsed_index <- suppressWarnings(lubridate::ymd(index))
+        if (anyNA(parsed_index)) {
+            bad_inputs <- index[is.na(parsed_index)]
+            stop(
+                "Error: Index date(s) '",
+                paste(bad_inputs, collapse = ", "),
+                "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format."
+            )
+        }
+        parsed_index <- sort(unique(parsed_index))
+        if (!identical(parsed_index, index_dates)) {
+            stop("Error: Both 'index' (deprecated) and 'index_dates' supplied but do not match.")
+        }
+        warning("Both 'index' (deprecated) and 'index_dates' supplied; using 'index_dates'.", call.=FALSE)
+    }
     K <- length(index_dates)
     index_max <- index_dates[length(index_dates)]
     registry_start_date <- lubridate::ymd(registry_start_date)
