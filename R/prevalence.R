@@ -812,18 +812,67 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
 
 #' @export
 print.prevalence <- function(x, ...) {
-    cat(paste0("Estimated prevalence at ", x$index_date, ":\n"))
-    lapply(names(x$estimates), function(item) {
-        year <- strsplit(item, 'y')[[1]][2]
-        abs_prev_est <- x$estimates[[item]][1]
-        if (length(x$estimates[[item]]) > 1) {
-            rel_prev <- x$estimates[[item]][2]
-            rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
-        } else {
-            rel_prev_est <- NULL
+    index_dates <- if (!is.null(x$index_dates)) x$index_dates else x$index_date
+    years <- x$est_years
+
+    get_rate_name <- function(est_names) {
+        rate_names <- grep("^per[^.]*$", est_names, value=TRUE)
+        if (length(rate_names) == 0) {
+            return(NULL)
         }
-        cat(paste(year, "years:", abs_prev_est, rel_prev_est, '\n'))
-    })
+        if (length(rate_names) > 1) {
+            stop("Error: multiple rate columns found in estimates: ", paste(rate_names, collapse=", "))
+        }
+        rate_names
+    }
+
+    if (length(index_dates) <= 1) {
+        cat(paste0("Estimated prevalence at ", index_dates, ":\n"))
+        lapply(paste0("y", years), function(item) {
+            est <- x$estimates[[item]]
+            abs_prev_est <- est[["absolute.prevalence"]]
+            rate_name <- get_rate_name(names(est))
+            if (!is.null(rate_name)) {
+                rel_prev <- est[[rate_name]]
+                rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
+            } else {
+                rel_prev_est <- NULL
+            }
+            year <- gsub("^y", "", item)
+            cat(paste(year, "years:", abs_prev_est, rel_prev_est, '\n'))
+        })
+    } else {
+        abs_table <- data.frame(index_date=index_dates)
+        for (year in years) {
+            item <- paste0("y", year)
+            est <- x$estimates[[item]]
+            abs_vec <- est[["absolute.prevalence"]]
+            if (length(abs_vec) != length(index_dates)) {
+                stop("Error: length mismatch for ", item, " absolute.prevalence.")
+            }
+            abs_table[[paste0(year, "y")]] <- abs_vec
+        }
+
+        cat("Estimated prevalence:\n")
+        print(abs_table, row.names=FALSE)
+
+        rate_name <- get_rate_name(names(x$estimates[[paste0("y", years[1])]]))
+        if (!is.null(rate_name)) {
+            rate_table <- data.frame(index_date=index_dates)
+            for (year in years) {
+                item <- paste0("y", year)
+                est <- x$estimates[[item]]
+                rate_vec <- est[[rate_name]]
+                if (length(rate_vec) != length(index_dates)) {
+                    stop("Error: length mismatch for ", item, " rate column.")
+                }
+                rate_table[[paste0(year, "y")]] <- rate_vec
+            }
+            cat(paste0("Prevalence rate (per ", x$proportion, "):\n"))
+            print(rate_table, row.names=FALSE)
+        }
+    }
+    invisible(x)
 }
 
 #' @export
