@@ -645,6 +645,9 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
     # Needed for CRAN check
     alive_at_index <- NULL
     time_to_index <- NULL
+    k_start <- NULL
+    k_end <- NULL
+    xi <- NULL
 
     if (is.null(index_dates)) {
         index_dates <- index
@@ -660,9 +663,6 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
     K <- length(index_dates)
     if (K == 0) {
         stop("Error: No valid index dates provided.")
-    }
-    if (K > 1) {
-        stop("Multi-index support in sim_prevalence is not implemented yet: run_sample() still assumes a single index date.")
     }
 
     starting_date <- lubridate::ymd(starting_date)
@@ -692,15 +692,54 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
         incident_population <- draw_incident_population(bs_inc, full_data, number_incident_days, extract_covars(bs_surv))
         data.table::setDT(incident_population)
 
-        # For each individual determine the time between incidence and the index
+        # For each individual determine the time between incidence and each index
         incident_date <- as.Date(starting_date + incident_population[[1]])
-        time_to_index <- as.numeric(difftime(index, incident_date, units='days'))
+        time_to_index_mat <- t(outer(index_dates,
+                                     incident_date,
+                                     FUN=function(tk, dj) as.numeric(difftime(tk, dj, units='days'))))
+        mask <- time_to_index_mat >= 0
+        times_mat <- pmax(time_to_index_mat, 0)
 
-        # Estimate whether alive as Bernouilli trial with p = S(t)
-        surv_prob <- predict_survival_probability(bs_surv, incident_population[, -1], time_to_index)
+        if (K == 1) {
+            time_to_index <- time_to_index_mat[, 1]
+            surv_prob <- predict_survival_probability(bs_surv, incident_population[, -1], times_mat[, 1])
+            alive_at_index <- rbinom(length(surv_prob), size=1, prob=surv_prob)
+            alive_mat <- matrix(alive_at_index, ncol=1)
+        } else {
+            p_mat <- matrix(NA_real_, nrow=nrow(time_to_index_mat), ncol=K)
+            for (k in seq_len(K)) {
+                p_mat[, k] <- predict_survival_probability(bs_surv, incident_population[, -1], times_mat[, k])
+            }
+            xi <- runif(nrow(p_mat))
+            alive_mat <- (xi <= p_mat) & mask
+            alive_at_index <- as.integer(alive_mat[, K])
+        }
+
+        any_alive <- rowSums(alive_mat) > 0
+        k_start <- ifelse(any_alive, max.col(alive_mat, ties.method="first"), NA_integer_)
+        idx_rev <- max.col(alive_mat[, K:1, drop=FALSE], ties.method="first")
+        k_end <- K - idx_rev + 1
+        k_end[!any_alive] <- NA_integer_
+
+        if (!is.null(age_column) & age_column %in% colnames(incident_population)) {
+            too_old_mat <- (incident_population[[age_column]] * DAYS_IN_YEAR + time_to_index_mat) > age_dead * DAYS_IN_YEAR
+            alive_mat <- alive_mat & !too_old_mat
+
+            any_alive <- rowSums(alive_mat) > 0
+            k_start <- ifelse(any_alive, max.col(alive_mat, ties.method="first"), NA_integer_)
+            idx_rev <- max.col(alive_mat[, K:1, drop=FALSE], ties.method="first")
+            k_end <- K - idx_rev + 1
+            k_end[!any_alive] <- NA_integer_
+            alive_at_index <- as.integer(alive_mat[, K])
+        }
+
         incident_population[, 'incident_date' := incident_date]
-        incident_population[, 'time_to_index' := time_to_index]
-        incident_population[, 'alive_at_index' := rbinom(length(surv_prob), size=1, prob=surv_prob)]
+        incident_population[, 'k_start' := k_start]
+        incident_population[, 'k_end' := k_end]
+        incident_population[, 'alive_at_index' := alive_at_index]
+        if (K == 1) {
+            incident_population[, 'time_to_index' := time_to_index]
+        }
         list(pop=incident_population,
              surv=bs_surv,
              inc=bs_inc)
@@ -717,14 +756,17 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
     results <- data.table::rbindlist(lapply(all_results, function(x) x$pop), idcol='sim')
 
     # Force death at 100 if possible
-    if (!is.null(age_column) & age_column %in% colnames(results)) {
+    if (!is.null(age_column) & age_column %in% colnames(results) & "time_to_index" %in% colnames(results)) {
         results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
-    } else {
+    } else if (is.null(age_column) | !age_column %in% colnames(results)) {
         message("No column found for age in ", age_column, ", so cannot assume death at 100 years of age. Be careful of 'infinite' survival times.")
     }
 
     # These intermediary columns aren't useful for the user and would just clutter up the output
-    results[, c('time_to_index', 'time_to_entry') := NULL]
+    cols_drop <- intersect(c('time_to_index', 'time_to_entry'), colnames(results))
+    if (length(cols_drop) > 0) {
+        results[, (cols_drop) := NULL]
+    }
 
     list(results=results,
          full_surv_model=surv_model,
