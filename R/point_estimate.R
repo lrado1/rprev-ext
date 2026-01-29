@@ -65,6 +65,112 @@ new_point_estimate <- function(year, sim_results, index, registry_data, prev_for
     lapply(result, round, precision)
 }
 
+new_point_estimate_multiindex <- function(year,
+                                          sim_prev_counts,
+                                          sim_prev_counts_pre_registry=NULL,
+                                          index_dates,
+                                          registry_data,
+                                          prev_formula,
+                                          registry_start_date,
+                                          status_col,
+                                          population_size=NULL,
+                                          proportion=1e5,
+                                          level=0.95,
+                                          precision=2,
+                                          N_boot=NULL) {
+    if (year <= 0) {
+        warning("Cannot estimate prevalence for a non-positive value of num_year_to_estimate.")
+        return(data.frame(index_date=index_dates, absolute.prevalence=0))
+    }
+
+    if (!is.null(sim_prev_counts)) {
+        sim_prev_counts <- as.data.frame(sim_prev_counts)
+    }
+    if (!is.null(sim_prev_counts_pre_registry)) {
+        sim_prev_counts_pre_registry <- as.data.frame(sim_prev_counts_pre_registry)
+    }
+
+    if (is.null(N_boot)) {
+        if (!is.null(sim_prev_counts) && nrow(sim_prev_counts) > 0) {
+            N_boot <- max(sim_prev_counts$sim)
+        } else if (!is.null(sim_prev_counts_pre_registry) && nrow(sim_prev_counts_pre_registry) > 0) {
+            N_boot <- max(sim_prev_counts_pre_registry$sim)
+        }
+    }
+
+    get_sim_contribs <- function(tbl, k, n_boot) {
+        if (is.null(tbl)) {
+            return(rep(0, n_boot))
+        }
+        if (is.null(n_boot)) {
+            stop("Error: N_boot is required to build simulation contribution vectors.")
+        }
+        sub <- tbl[tbl$year == year & tbl$k == k, c("sim", "prev_count")]
+        contribs <- rep(0, n_boot)
+        if (nrow(sub) > 0) {
+            contribs[sub$sim] <- sub$prev_count
+        }
+        contribs
+    }
+
+    rows <- vector("list", length(index_dates))
+    for (i in seq_along(index_dates)) {
+        index_k <- index_dates[i]
+        initial_date <- index_k - lubridate::years(year)
+        need_simulation <- initial_date < registry_start_date
+
+        if (!is.null(prev_formula)) {
+            count_prev <- counted_prevalence(prev_formula,
+                                             index_k,
+                                             registry_data,
+                                             max(initial_date, registry_start_date),
+                                             status_col)
+
+            if (need_simulation) {
+                if (is.null(sim_prev_counts_pre_registry)) {
+                    stop("Error: sim_prev_counts_pre_registry is required for multi-index simulation.")
+                }
+                sim_contribs <- get_sim_contribs(sim_prev_counts_pre_registry, i, N_boot)
+                the_estimate <- count_prev + mean(sim_contribs)
+                se_func <- build_se_func(counted_contribs=count_prev, sim_contribs=sim_contribs)
+            } else {
+                the_estimate <- count_prev
+                se_func <- build_se_func(counted_contribs=count_prev)
+            }
+        } else {
+            if (is.null(sim_prev_counts)) {
+                stop("Error: sim_prev_counts is required when counted prevalence is unavailable.")
+            }
+            sim_contribs <- get_sim_contribs(sim_prev_counts, i, N_boot)
+            the_estimate <- mean(sim_contribs)
+            se_func <- build_se_func(sim_contribs=sim_contribs)
+        }
+
+        row <- data.frame(index_date=index_k, absolute.prevalence=the_estimate)
+        if (!is.null(population_size)) {
+            the_proportion <- (the_estimate / population_size) * proportion
+            se <- se_func(population_size)
+            z_level <- qnorm((1+level)/2)
+            CI <- z_level * se * proportion
+
+            est_lab <- paste0('per', proportion_label(proportion))
+            upper_lab <- paste(est_lab, '.upper', sep='')
+            lower_lab <- paste(est_lab, '.lower', sep='')
+            row[[est_lab]] <- the_proportion
+            row[[upper_lab]] <- the_proportion + CI
+            row[[lower_lab]] <- the_proportion - CI
+        }
+
+        rows[[i]] <- row
+    }
+
+    result <- do.call(rbind, rows)
+    result[] <- lapply(result, function(x) {
+        if (is.numeric(x) && !inherits(x, "Date")) round(x, precision) else x
+    })
+    result
+}
+
 build_se_func <- function(counted_contribs=NULL, sim_contribs=NULL) {
     # Pure simulated
     if (is.null(counted_contribs)) {
