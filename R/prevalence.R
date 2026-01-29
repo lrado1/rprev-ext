@@ -751,9 +751,43 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
         message("Multi-core functionality not currently implemented, defaulting to single-core.")
     }
     all_results <- replicate(N_boot, run_sample(), simplify=FALSE)
+    names(all_results) <- seq_len(N_boot)
 
     # Combine incident population into single table
-    results <- data.table::rbindlist(lapply(all_results, function(x) x$pop), idcol='sim')
+    pops <- lapply(all_results, function(x) {
+        pop <- x$pop
+        data.table::setDT(pop)
+        pop
+    })
+
+    if (length(pops) > 0) {
+        ref_cols <- names(pops[[1]])
+        for (i in seq_along(pops)) {
+            cols_i <- names(pops[[i]])
+            if (!identical(cols_i, ref_cols)) {
+                stop("Error: inconsistent columns in bootstrap population at sim ",
+                     i, ". Expected: ", paste(ref_cols, collapse=", "),
+                     "; got: ", paste(cols_i, collapse=", "), ".")
+            }
+            required_cols <- c("incident_date", "k_start", "k_end", "alive_at_index")
+            missing_cols <- setdiff(required_cols, cols_i)
+            if (length(missing_cols) > 0) {
+                stop("Error: missing required columns in bootstrap population at sim ",
+                     i, ": ", paste(missing_cols, collapse=", "), ".")
+            }
+            if (!inherits(pops[[i]]$incident_date, "Date")) {
+                stop("Error: incident_date must be a Date in bootstrap population at sim ", i, ".")
+            }
+            if (!is.numeric(pops[[i]]$k_start) || !is.numeric(pops[[i]]$k_end)) {
+                stop("Error: k_start/k_end must be numeric in bootstrap population at sim ", i, ".")
+            }
+            if (!is.numeric(pops[[i]]$alive_at_index)) {
+                stop("Error: alive_at_index must be numeric in bootstrap population at sim ", i, ".")
+            }
+        }
+    }
+
+    results <- data.table::rbindlist(pops, idcol='sim', use.names=TRUE, fill=FALSE)
 
     # Force death at 100 if possible
     if (!is.null(age_column) & age_column %in% colnames(results) & "time_to_index" %in% colnames(results)) {
