@@ -416,13 +416,24 @@ prevalence <- function(index, num_years_to_estimate,
 
     # Calculate covariate averages for survfit later on
     if (!is.null(prev_sim)) {
-        covars <- extract_covars(surv_model)
+        model_for_means <- full_surv_model
+        covars <- extract_covars(model_for_means)
+        missing_covars <- setdiff(covars, colnames(data))
+        if (length(missing_covars) > 0) {
+            stop("Error: cannot find covariate(s) in data: ", paste(missing_covars, collapse = ", "))
+        }
         # Obtain if continuous or categorical
         is_factor <- sapply(covars, function(x) is.factor(data[[x]]) || is.character(data[[x]]))
         fact_cols <- covars[is_factor]
         cont_cols <- covars[!is_factor]
-        cont_means <- sapply(cont_cols, function(x) mean(data[[x]]))
-        cat_modes <- sapply(fact_cols, function(x) names(which.max(table(data[[x]]))))
+        cont_means <- sapply(cont_cols, function(x) mean(data[[x]], na.rm=TRUE))
+        cat_modes <- sapply(fact_cols, function(x) {
+            vals <- stats::na.omit(data[[x]])
+            if (length(vals) == 0) {
+                return(NA)
+            }
+            names(which.max(table(vals)))
+        })
 
         # Save into data frame
         means <- data.frame()
@@ -431,7 +442,12 @@ prevalence <- function(index, num_years_to_estimate,
         }
         for (var in fact_cols) {
             means[1, var] <- cat_modes[var]
-            means[[var]] <- factor(means[[var]], levels=levels(data[[var]]))
+            levels_vec <- if (is.factor(data[[var]])) {
+                levels(data[[var]])
+            } else {
+                sort(unique(stats::na.omit(data[[var]])))
+            }
+            means[[var]] <- factor(means[[var]], levels=levels_vec)
         }
         object$means <- means
     } else {
@@ -440,14 +456,31 @@ prevalence <- function(index, num_years_to_estimate,
 
     # Add max time if possible
     if (!is.null(incident_column) & !is.null(death_column)) {
-        object$max_event_time <- max(as.numeric(difftime(data[[death_column]],
-                                              data[[incident_column]],
-                                              units='days')))
+        time_vals <- as.numeric(difftime(data[[death_column]],
+                                         data[[incident_column]],
+                                         units='days'))
+        time_vals <- time_vals[!is.na(time_vals)]
+        if (length(time_vals) == 0) {
+            object$max_event_time <- NULL
+        } else {
+            if (any(time_vals < 0)) {
+                warning("Negative event times detected in registry data.")
+            }
+            object$max_event_time <- max(time_vals)
+        }
     }
 
 
     if (!is.null(prev_sim)) {
-        object$pval <- test_prevalence_fit(object)
+        if (K > 1) {
+            pval_ref <- test_prevalence_fit(object)
+            pval_by_index <- setNames(rep(NA_real_, K), as.character(index_dates))
+            pval_by_index[as.character(index_date)] <- pval_ref
+            object$pval <- pval_ref
+            object$pval_by_index <- pval_by_index
+        } else {
+            object$pval <- test_prevalence_fit(object)
+        }
     }
 
     attr(object, 'class') <- 'prevalence'
