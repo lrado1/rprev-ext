@@ -374,18 +374,41 @@ prevalence <- function(index, num_years_to_estimate,
     } else {
         counted_prev <- NULL
     }
+    t_ref <- max(index_dates)
+    counted_legacy <- counted_prev
+    if (K > 1 && is.data.frame(counted_prev)) {
+        idx <- match(t_ref, counted_prev$index_date)
+        counted_legacy <- if (!is.na(idx)) counted_prev$counted[idx] else NA_real_
+    }
+    counted_incidence_rate <- nrow(data) / as.numeric(difftime(t_ref,
+                                                               registry_start_date,
+                                                               units='days'))
+    counted_incidence_rate_by_index <- vapply(index_dates,
+                                              function(tk) nrow(data) / as.numeric(difftime(tk,
+                                                                                           registry_start_date,
+                                                                                           units='days')),
+                                              numeric(1))
+
     object <- list(estimates=estimates,
                    simulated=prev_sim$results,
-                   counted=counted_prev,
-                   full_surv_model=surv_model,
+                   sim_prev_counts=if (!is.null(prev_sim)) {
+                       if (!is.null(prev_sim$sim_prev_counts)) prev_sim$sim_prev_counts else prev_sim$prev_counts
+                   } else {
+                       NULL
+                   },
+                   sim_prev_counts_pre_registry=if (!is.null(prev_sim)) prev_sim$sim_prev_counts_pre_registry else NULL,
+                   counted_by_index=counted_prev,
+                   counted=counted_legacy,
+                   full_surv_model=full_surv_model,
                    full_inc_model=full_inc_model,
                    surv_models=surv_models,
                    inc_models=inc_models,
-                   index_date=index,
+                   index_dates=index_dates,
+                   K=K,
+                   index_date=t_ref,
                    est_years=num_years_to_estimate,
-                   counted_incidence_rate = nrow(data) / as.numeric(difftime(index,
-                                                                             registry_start_date,
-                                                                             units='days')),
+                   counted_incidence_rate=counted_incidence_rate,
+                   counted_incidence_rate_by_index=counted_incidence_rate_by_index,
                    registry_start=registry_start_date,
                    proportion=proportion,
                    status_col=status_column,
