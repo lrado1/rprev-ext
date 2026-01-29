@@ -362,7 +362,15 @@ prevalence <- function(index, num_years_to_estimate,
         if (!status_column %in% colnames(data)) {
             stop("Error: cannot find status column '", status_column, "' in data frame.")
         }
-        counted_prev <- counted_prevalence(counted_formula, index, data, registry_start_date, status_column)
+        if (K > 1) {
+            counted_vec <- vapply(index_dates,
+                                  function(tk) counted_prevalence(counted_formula, tk, data, registry_start_date, status_column),
+                                  numeric(1))
+            counted_prev <- data.frame(index_date=index_dates,
+                                       counted=unname(counted_vec))
+        } else {
+            counted_prev <- counted_prevalence(counted_formula, index, data, registry_start_date, status_column)
+        }
     } else {
         counted_prev <- NULL
     }
