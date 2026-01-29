@@ -337,10 +337,28 @@ prevalence <- function(index, num_years_to_estimate,
                                                                          num_years_to_estimate)
         }
 
+        sim_agg <- NULL
+        if (!is.null(sim_prev_counts)) {
+            total <- as.data.frame(sim_prev_counts)
+            total$index_date <- index_dates[total$k]
+            total$contrib_total <- total$prev_count
+            total <- total[, c("sim", "index_date", "year", "contrib_total")]
+
+            if (is.null(sim_prev_counts_pre_registry)) {
+                total$contrib_pre_registry <- NA_real_
+                sim_agg <- total
+            } else {
+                pre <- as.data.frame(sim_prev_counts_pre_registry)
+                pre$index_date <- index_dates[pre$k]
+                pre$contrib_pre_registry <- pre$prev_count
+                pre <- pre[, c("sim", "index_date", "year", "contrib_pre_registry")]
+                sim_agg <- merge(total, pre, by=c("sim", "index_date", "year"), all=TRUE)
+            }
+        }
+
         estimates <- lapply(setNames(num_years_to_estimate, names),
                             new_point_estimate_multiindex,  # Function
-                            sim_prev_counts=sim_prev_counts,
-                            sim_prev_counts_pre_registry=sim_prev_counts_pre_registry,
+                            sim_agg=sim_agg,
                             index_dates=index_dates,
                             registry_data=data,
                             prev_formula=counted_formula,

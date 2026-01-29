@@ -1,6 +1,20 @@
 new_point_estimate <- function(year, sim_results, index, registry_data, prev_formula, registry_start_date, status_col,
                                population_size=NULL, proportion=1e5,
                                level=0.95, precision=2) {
+    if (length(index) > 1) {
+        return(new_point_estimate_multiindex(year=year,
+                                             sim_agg=sim_results,
+                                             index_dates=index,
+                                             registry_data=registry_data,
+                                             prev_formula=prev_formula,
+                                             registry_start_date=registry_start_date,
+                                             status_col=status_col,
+                                             population_size=population_size,
+                                             proportion=proportion,
+                                             level=level,
+                                             precision=precision))
+    }
+
     if (year <= 0) {
         warning("Cannot estimate prevalence for a non-positive value of num_year_to_estimate.")
         return(list(absolute.prevalence=0))
@@ -66,8 +80,7 @@ new_point_estimate <- function(year, sim_results, index, registry_data, prev_for
 }
 
 new_point_estimate_multiindex <- function(year,
-                                          sim_prev_counts,
-                                          sim_prev_counts_pre_registry=NULL,
+                                          sim_agg,
                                           index_dates,
                                           registry_data,
                                           prev_formula,
@@ -83,32 +96,68 @@ new_point_estimate_multiindex <- function(year,
         return(data.frame(index_date=index_dates, absolute.prevalence=0))
     }
 
-    if (!is.null(sim_prev_counts)) {
-        sim_prev_counts <- as.data.frame(sim_prev_counts)
+    if (length(index_dates) < 1) {
+        stop("Error: index_dates must have length >= 1.")
     }
-    if (!is.null(sim_prev_counts_pre_registry)) {
-        sim_prev_counts_pre_registry <- as.data.frame(sim_prev_counts_pre_registry)
+    if (!inherits(index_dates, "Date")) {
+        stop("Error: index_dates must be a Date vector.")
     }
 
-    if (is.null(N_boot)) {
-        if (!is.null(sim_prev_counts) && nrow(sim_prev_counts) > 0) {
-            N_boot <- max(sim_prev_counts$sim)
-        } else if (!is.null(sim_prev_counts_pre_registry) && nrow(sim_prev_counts_pre_registry) > 0) {
-            N_boot <- max(sim_prev_counts_pre_registry$sim)
+    if (!is.null(sim_agg)) {
+        sim_agg <- as.data.frame(sim_agg)
+        required <- c("sim", "index_date", "year", "contrib_total")
+        missing_cols <- setdiff(required, names(sim_agg))
+        if (length(missing_cols) > 0) {
+            stop("Error: sim_agg missing required columns: ", paste(missing_cols, collapse=", "))
+        }
+        if (!inherits(sim_agg$index_date, "Date")) {
+            sim_agg$index_date <- as.Date(sim_agg$index_date)
+        }
+        if (is.null(N_boot) && nrow(sim_agg) > 0) {
+            N_boot <- max(sim_agg$sim)
         }
     }
 
-    get_sim_contribs <- function(tbl, k, n_boot) {
-        if (is.null(tbl)) {
-            return(rep(0, n_boot))
+    if (!is.null(prev_formula) && !status_col %in% colnames(registry_data)) {
+        stop("Error: cannot find status column '", status_col, "' in registry data.")
+    }
+
+    initial_dates <- index_dates - lubridate::years(year)
+    need_sim <- initial_dates < registry_start_date
+
+    if (!is.null(prev_formula)) {
+        count_prev_vec <- vapply(seq_along(index_dates), function(i) {
+            counted_prevalence(prev_formula,
+                               index_dates[i],
+                               registry_data,
+                               max(initial_dates[i], registry_start_date),
+                               status_col)
+        }, numeric(1))
+    } else {
+        count_prev_vec <- rep(0, length(index_dates))
+    }
+
+    need_sim_any <- is.null(prev_formula) || any(need_sim)
+    if (need_sim_any) {
+        if (is.null(sim_agg)) {
+            stop("Error: sim_agg is required for simulation contributions.")
         }
-        if (is.null(n_boot)) {
+        if (is.null(N_boot)) {
             stop("Error: N_boot is required to build simulation contribution vectors.")
         }
-        sub <- tbl[tbl$year == year & tbl$k == k, c("sim", "prev_count")]
-        contribs <- rep(0, n_boot)
+        if (!"contrib_pre_registry" %in% names(sim_agg) && any(need_sim)) {
+            stop("Error: sim_agg missing required column: contrib_pre_registry.")
+        }
+    }
+
+    get_sim_contribs <- function(idx_date, col_name) {
+        if (is.null(sim_agg)) {
+            stop("Error: sim_agg is required for simulation contributions.")
+        }
+        sub <- sim_agg[sim_agg$year == year & sim_agg$index_date == idx_date, c("sim", col_name)]
+        contribs <- rep(0, N_boot)
         if (nrow(sub) > 0) {
-            contribs[sub$sim] <- sub$prev_count
+            contribs[sub$sim] <- sub[[col_name]]
         }
         contribs
     }
@@ -116,34 +165,17 @@ new_point_estimate_multiindex <- function(year,
     rows <- vector("list", length(index_dates))
     for (i in seq_along(index_dates)) {
         index_k <- index_dates[i]
-        initial_date <- index_k - lubridate::years(year)
-        need_simulation <- initial_date < registry_start_date
-
-        if (!is.null(prev_formula)) {
-            count_prev <- counted_prevalence(prev_formula,
-                                             index_k,
-                                             registry_data,
-                                             max(initial_date, registry_start_date),
-                                             status_col)
-
-            if (need_simulation) {
-                if (is.null(sim_prev_counts_pre_registry)) {
-                    stop("Error: sim_prev_counts_pre_registry is required for multi-index simulation.")
-                }
-                sim_contribs <- get_sim_contribs(sim_prev_counts_pre_registry, i, N_boot)
-                the_estimate <- count_prev + mean(sim_contribs)
-                se_func <- build_se_func(counted_contribs=count_prev, sim_contribs=sim_contribs)
-            } else {
-                the_estimate <- count_prev
-                se_func <- build_se_func(counted_contribs=count_prev)
-            }
-        } else {
-            if (is.null(sim_prev_counts)) {
-                stop("Error: sim_prev_counts is required when counted prevalence is unavailable.")
-            }
-            sim_contribs <- get_sim_contribs(sim_prev_counts, i, N_boot)
+        if (is.null(prev_formula)) {
+            sim_contribs <- get_sim_contribs(index_k, "contrib_total")
             the_estimate <- mean(sim_contribs)
             se_func <- build_se_func(sim_contribs=sim_contribs)
+        } else if (need_sim[i]) {
+            sim_contribs <- get_sim_contribs(index_k, "contrib_pre_registry")
+            the_estimate <- count_prev_vec[i] + mean(sim_contribs)
+            se_func <- build_se_func(counted_contribs=count_prev_vec[i], sim_contribs=sim_contribs)
+        } else {
+            the_estimate <- count_prev_vec[i]
+            se_func <- build_se_func(counted_contribs=count_prev_vec[i])
         }
 
         row <- data.frame(index_date=index_k, absolute.prevalence=the_estimate)
