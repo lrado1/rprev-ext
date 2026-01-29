@@ -649,12 +649,36 @@ sim_prevalence <- function(data, index, index_dates=NULL, starting_date,
     if (is.null(index_dates)) {
         index_dates <- index
     }
+    raw_index_dates <- index_dates
+    index_dates <- suppressWarnings(lubridate::ymd(index_dates))
+    if (anyNA(index_dates)) {
+        bad_inputs <- raw_index_dates[is.na(index_dates)]
+        stop("Error: Index date(s) '", paste(bad_inputs, collapse=", "),
+             "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format.")
+    }
+    index_dates <- sort(unique(index_dates))
+    K <- length(index_dates)
+    if (K == 0) {
+        stop("Error: No valid index dates provided.")
+    }
+    if (K > 1) {
+        stop("Multi-index support in sim_prevalence is not implemented yet: run_sample() still assumes a single index date.")
+    }
+
+    starting_date <- lubridate::ymd(starting_date)
+    if (anyNA(starting_date)) {
+        stop("Error: starting_date cannot be parsed as a date.")
+    }
+    index <- max(index_dates)
 
     data <- data[complete.cases(data), ]
     full_data <- data
 
     covars <- extract_covars(surv_model)
     number_incident_days <- as.numeric(difftime(index, starting_date, units='days'))
+    if (number_incident_days <= 0) {
+        stop("Error: starting_date must be earlier than index date(s).")
+    }
 
     run_sample <- function() {
         # bootstrap dataset
