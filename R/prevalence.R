@@ -574,12 +574,47 @@ counted_prevalence <- function(formula, index, data, start_date, status_col) {
     death_col <- all.vars(update(formula, .~0))
     entry_col <- all.vars(update(formula, 0~.))
 
-    incident <- data[[entry_col]] >= start_date & data[[entry_col]] < index
+    if (length(death_col) != 1 || length(entry_col) != 1) {
+        stop("Error: formula must contain exactly one event column and one entry column.")
+    }
 
-    # Use dead at index as it's a simpler boolean operation that just needs negating
-    dead_at_index <- !(data[[death_col]] > index) & (data[[status_col]] == 1)
+    index <- as.Date(index)
+    start_date <- as.Date(start_date)
+    K <- length(index)
 
-    sum(incident & !dead_at_index)
+    if (length(start_date) == 1) {
+        start_date <- rep(start_date, K)
+    }
+    if (length(start_date) != K) {
+        stop("Error: start_date must have length 1 or match length(index).")
+    }
+
+    entry <- data[[entry_col]]
+    death <- data[[death_col]]
+    status <- data[[status_col]]
+
+    if (!inherits(entry, "Date")) {
+        entry <- as.Date(entry)
+    }
+    if (!inherits(death, "Date")) {
+        death <- as.Date(death)
+    }
+
+    count_one <- function(idx_date, start_date_k) {
+        incident <- !is.na(entry) & entry >= start_date_k & entry < idx_date
+        dead_at_index <- (!is.na(status) & status == 1) & !is.na(death) & (death <= idx_date)
+        sum(incident & !dead_at_index, na.rm=TRUE)
+    }
+
+    if (K == 1) {
+        count_one(index[1], start_date[1])
+    } else {
+        out <- vapply(seq_len(K),
+                      function(i) count_one(index[i], start_date[i]),
+                      numeric(1))
+        names(out) <- as.character(index)
+        out
+    }
 }
 
 #' Estimate prevalence using Monte Carlo simulation.
