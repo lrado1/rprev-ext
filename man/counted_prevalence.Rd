@@ -4,12 +4,12 @@
 \alias{counted_prevalence}
 \title{Count prevalence from registry data.}
 \usage{
-counted_prevalence(formula, index, data, start_date, status_col)
+counted_prevalence(formula, index_dates, data, start_date, status_col)
 }
 \arguments{
 \item{formula}{A formula of the form <event date column> ~ <entry date column>.}
 
-\item{index}{The date at which to estimate point prevalence as a string in the format
+\item{index_dates}{The date(s) at which to estimate point prevalence as a string in the format
 YYYY-MM-DD.}
 
 \item{data}{A data frame with the corresponding column names provided in
@@ -23,8 +23,9 @@ of whether the individual experienced an event at their event time or was
 censored.}
 }
 \value{
-The number of prevalent cases at the specified
-index date as a single integer.
+The number of prevalent cases at the specified index date(s).
+Returns a single integer for length-1 \code{index_dates} and a numeric
+vector for multiple dates.
 }
 \description{
 Counts contribution to prevalence at a specific index from each year of a

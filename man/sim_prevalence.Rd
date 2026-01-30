@@ -6,7 +6,7 @@
 \usage{
 sim_prevalence(
   data,
-  index,
+  index_dates,
   starting_date,
   inc_model,
   surv_model,
@@ -19,7 +19,7 @@ sim_prevalence(
 \item{data}{A data frame with the corresponding column names provided in
 \code{form}.}
 
-\item{index}{The date at which to estimate point prevalence as a string in the format
+\item{index_dates}{The date(s) at which to estimate point prevalence as a string in the format
 YYYY-MM-DD.}
 
 \item{starting_date}{The initial date to start simulating prevalence from as a \code{Date} object.
