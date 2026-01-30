@@ -304,21 +304,12 @@ prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
                 prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index_max) & alive_at_index)]
             }
         } else {
-            # Legacy columns for last index to keep K=1 pipeline behavior until multi-index estimates land.
-            for (year in num_years_to_estimate) {
-                starting_incident_date <- index_max - lubridate::years(year)
-                col_name <- paste0("prev_", year, "yr")
-                prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index_max) & alive_at_index)]
+            if (!all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
+                stop("Error: multi-index simulation requires k_start, k_end, and incident_date in simulated results.")
             }
-
-            if (all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
-                prev_sim$prev_counts <- build_prev_counts_multiindex(prev_sim$results,
-                                                                     index_dates,
-                                                                     num_years_to_estimate)
-            } else {
-                # TODO: Enable prev_counts once sim_prevalence returns k_start/k_end.
-                prev_sim$prev_counts <- NULL
-            }
+            prev_sim$prev_counts <- build_prev_counts_multiindex(prev_sim$results,
+                                                                 index_dates,
+                                                                 num_years_to_estimate)
             prev_sim$index_dates <- index_dates
         }
 
