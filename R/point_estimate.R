@@ -156,9 +156,13 @@ new_point_estimate_multiindex <- function(year,
             stop("Error: sim_agg is required for simulation contributions.")
         }
         sub <- sim_agg[sim_agg$year == year & sim_agg$index_dates == idx_date, c("sim", col_name)]
+        sim_ids <- suppressWarnings(as.integer(as.character(sub$sim)))
+        if (anyNA(sim_ids)) {
+            stop("Error: sim_agg contains non-numeric sim identifiers.")
+        }
         contribs <- rep(0, N_boot)
         if (nrow(sub) > 0) {
-            contribs[sub$sim] <- sub[[col_name]]
+            contribs[sim_ids] <- sub[[col_name]]
         }
         contribs
     }
