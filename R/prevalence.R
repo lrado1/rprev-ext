@@ -291,22 +291,8 @@ prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
                                    age_dead=age_dead,
                                    N_boot=N_boot)
 
-        # Create column indicating whether contributed to prevalence for each year of interest
-        if (K == 1) {
-            for (year in num_years_to_estimate) {
-                # Determine starting incident date
-                starting_incident_date <- index_max - lubridate::years(year)
-
-                # We'll create a new column to hold a binary indicator of whether that observation contributes to prevalence
-                col_name <- paste0("prev_", year, "yr")
-
-                # Determine prevalence as incident date is in range and alive at index date
-                prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index_max) & alive_at_index)]
-            }
-        } else {
-            if (!all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
-                stop("Error: multi-index simulation requires k_start, k_end, and incident_date in simulated results.")
-            }
+        if (!all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
+            stop("Error: simulation requires k_start, k_end, and incident_date in simulated results.")
         }
 
     } else {
@@ -315,50 +301,40 @@ prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
 
     # Determine point estimates of prevalence by combining simulated and counted values
     names <- sapply(num_years_to_estimate, function(x) paste('y', x, sep=''))
-    if (length(index_dates) == 1) {
-        estimates <- lapply(setNames(num_years_to_estimate, names),
-                            new_point_estimate,  # Function
-                            prev_sim$results, index_dates, data,
-                            counted_formula,
-                            registry_start_date,
-                            status_column,
-                            population_size, proportion, level, precision)
-    } else {
-        sim_agg <- NULL
-        if (!is.null(prev_sim)) {
-            sim_prev_counts <- build_prev_counts_multiindex(prev_sim$results,
-                                                            index_dates,
-                                                            num_years_to_estimate)
-            sim_prev_counts_pre_registry <- build_prev_counts_multiindex(prev_sim$results[incident_date < registry_start_date],
-                                                                         index_dates,
-                                                                         num_years_to_estimate)
+    sim_agg <- NULL
+    if (!is.null(prev_sim)) {
+        sim_prev_counts <- build_prev_counts_multiindex(prev_sim$results,
+                                                        index_dates,
+                                                        num_years_to_estimate)
+        sim_prev_counts_pre_registry <- build_prev_counts_multiindex(prev_sim$results[incident_date < registry_start_date],
+                                                                     index_dates,
+                                                                     num_years_to_estimate)
 
-            total <- as.data.frame(sim_prev_counts)
-            total$index_dates <- index_dates[total$k]
-            total$contrib_total <- total$prev_count
-            total <- total[, c("sim", "index_dates", "year", "contrib_total")]
+        total <- as.data.frame(sim_prev_counts)
+        total$index_dates <- index_dates[total$k]
+        total$contrib_total <- total$prev_count
+        total <- total[, c("sim", "index_dates", "year", "contrib_total")]
 
-            pre <- as.data.frame(sim_prev_counts_pre_registry)
-            pre$index_dates <- index_dates[pre$k]
-            pre$contrib_pre_registry <- pre$prev_count
-            pre <- pre[, c("sim", "index_dates", "year", "contrib_pre_registry")]
-            sim_agg <- merge(total, pre, by=c("sim", "index_dates", "year"), all=TRUE)
-        }
-
-        estimates <- lapply(setNames(num_years_to_estimate, names),
-                            new_point_estimate_multiindex,  # Function
-                            sim_agg=sim_agg,
-                            index_dates=index_dates,
-                            registry_data=data,
-                            prev_formula=counted_formula,
-                            registry_start_date=registry_start_date,
-                            status_col=status_column,
-                            population_size=population_size,
-                            proportion=proportion,
-                            level=level,
-                            precision=precision,
-                            N_boot=N_boot)
+        pre <- as.data.frame(sim_prev_counts_pre_registry)
+        pre$index_dates <- index_dates[pre$k]
+        pre$contrib_pre_registry <- pre$prev_count
+        pre <- pre[, c("sim", "index_dates", "year", "contrib_pre_registry")]
+        sim_agg <- merge(total, pre, by=c("sim", "index_dates", "year"), all=TRUE)
     }
+
+    estimates <- lapply(setNames(num_years_to_estimate, names),
+                        new_point_estimate_multiindex,  # Function
+                        sim_agg=sim_agg,
+                        index_dates=index_dates,
+                        registry_data=data,
+                        prev_formula=counted_formula,
+                        registry_start_date=registry_start_date,
+                        status_col=status_column,
+                        population_size=population_size,
+                        proportion=proportion,
+                        level=level,
+                        precision=precision,
+                        N_boot=N_boot)
 
     full_surv_model <- if (!is.null(prev_sim)) prev_sim$full_surv_model else NULL
     full_inc_model <- if (!is.null(prev_sim)) prev_sim$full_inc_model else NULL
