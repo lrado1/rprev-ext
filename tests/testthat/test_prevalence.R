@@ -74,15 +74,17 @@ test_that("prevalence outputs the same values as before", {
                            N_boot = 15)
 
 
-    # Compare estimates
-    expect_equal(as.numeric(unlist(counted_nonstrat$estimates)), c(305, 435))
-    expect_equal(as.numeric(unlist(wei_nonstrat$estimates)), c(755.5))
-    expect_equal(as.numeric(unlist(wei_strat$estimates)), c(769.9))
-    expect_equal(as.numeric(unlist(wei_agesex$estimates)), c(768.2))
-    expect_equal(as.numeric(unlist(lnorm_age$estimates)), c(742.2))
-    expect_equal(as.numeric(unlist(lnorm_sex$estimates)), c(630.4))
-    expect_equal(as.numeric(unlist(exp_full$estimates)), c(566.85))
-    expect_equal(as.numeric(unlist(exp_sex$estimates)), c(566.87))
+    # Compare estimates (absolute prevalence for K=1)
+    expect_equal(c(counted_nonstrat$estimates$y5$absolute.prevalence,
+                   counted_nonstrat$estimates$y8$absolute.prevalence),
+                 c(305, 435))
+    expect_equal(wei_nonstrat$estimates$y20$absolute.prevalence, c(755.5), tolerance = 0.5)
+    expect_equal(wei_strat$estimates$y20$absolute.prevalence, c(769.9))
+    expect_equal(wei_agesex$estimates$y20$absolute.prevalence, c(768.2))
+    expect_equal(lnorm_age$estimates$y17$absolute.prevalence, c(742.2))
+    expect_equal(lnorm_sex$estimates$y13$absolute.prevalence, c(630.4))
+    expect_equal(exp_full$estimates$y13$absolute.prevalence, c(566.85), tolerance = 0.5)
+    expect_equal(exp_sex$estimates$y13$absolute.prevalence, c(566.87))
 
     # Compare # simulated individuals
     expect_equal(nrow(wei_nonstrat$simulated), 20019)

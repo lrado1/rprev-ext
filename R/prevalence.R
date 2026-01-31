@@ -91,10 +91,9 @@ MIN_INCIDENCE <- 10
 #'   \item{estimates}{Prevalence estimates at the specified years as both absolute and rates.}
 #'   \item{simulated}{A \code{data.table} containing simulated incident cases from each bootstrap iteration
 #'     Each row corresponds to a simulated incident case with their simulated attributes and survival status.
-#'     Binary flags are provided beginning \code{prev_}, which indicate whether that person contributed
-#'     to the prevalence for the specified time-period. The \code{prev_registry} flag indicates whether that
-#'     person was incident during the registry time-span and alive at the index. These cases are used to
-#'     assess the model fit, as the numbers can be simply compared to the known registry prevalence.}
+#'     Interval fields \code{k_start}/\code{k_end} indicate the range of index dates where each simulated
+#'     case is prevalent, alongside \code{incident_date}. These support multi-index aggregation without
+#'     per-index \code{prev_} columns.}
 #'   \item{counted}{The number of incident cases present in the registry data set.}
 #'   \item{full_surv_model}{The survival model built on the complete registry data set.}
 #'   \item{full_inc_model}{The incidence model built on the complete registry data set.}
