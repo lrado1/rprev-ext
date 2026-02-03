@@ -156,6 +156,7 @@ prevalence <- function(index, num_years_to_estimate,
     # Needed for CRAN check
     alive_at_index <- NULL
     incident_date <- NULL
+    xi <- NULL
 
     if (is.null(incident_column)) {
         if (!is.null(inc_formula)) {
@@ -208,12 +209,16 @@ prevalence <- function(index, num_years_to_estimate,
         registry_start_date <- min(data[[incident_column]])
     }
 
-    index <- suppressWarnings(lubridate::ymd(index))
-    if (is.na(index)) {
-        stop("Error: Index date '", index, "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format.")
+    index_dates <- suppressWarnings(lubridate::ymd(index))
+    if (any(is.na(index_dates))) {
+        stop("Error: Index date(s) cannot be parsed as dates. Please enter them as strings in %Y%m%d or %Y-%m-%d format.")
     }
+    index_dates <- sort(unique(index_dates))
+    index_date <- index_dates[1]
     registry_start_date <- lubridate::ymd(registry_start_date)
-    sim_start_date <- index - lubridate::years(max(num_years_to_estimate))
+    sim_start_date <- min(index_dates) - lubridate::years(max(num_years_to_estimate))
+
+    K <- length(index_dates)
 
     # NEED SIMULATION:
     #   - have N years > R registry years available
@@ -244,7 +249,7 @@ prevalence <- function(index, num_years_to_estimate,
             surv_model <- build_survreg(surv_formula, data, dist)
         }
 
-        prev_sim <- sim_prevalence(data, index, sim_start_date,
+        prev_sim <- sim_prevalence(data, index_date, sim_start_date,
                                    inc_model, surv_model,
                                    age_column=age_column,
                                    age_dead=age_dead,
@@ -252,14 +257,9 @@ prevalence <- function(index, num_years_to_estimate,
 
         # Create column indicating whether contributed to prevalence for each year of interest
         for (year in num_years_to_estimate) {
-            # Determine starting incident date
-            starting_incident_date <- index - lubridate::years(year)
-
-            # We'll create a new column to hold a binary indicator of whether that observation contributes to prevalence
+            starting_incident_date <- index_date - lubridate::years(year)
             col_name <- paste0("prev_", year, "yr")
-
-            # Determine prevalence as incident date is in range and alive at index date
-            prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index) & alive_at_index)]
+            prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index_date) & alive_at_index)]
         }
 
     } else {
@@ -270,7 +270,7 @@ prevalence <- function(index, num_years_to_estimate,
     names <- sapply(num_years_to_estimate, function(x) paste('y', x, sep=''))
     estimates <- lapply(setNames(num_years_to_estimate, names),
                         new_point_estimate,  # Function
-                        prev_sim$results, index, data,
+                        prev_sim$results, index_date, data,
                         counted_formula,
                         registry_start_date,
                         status_column,
@@ -285,7 +285,7 @@ prevalence <- function(index, num_years_to_estimate,
         if (!status_column %in% colnames(data)) {
             stop("Error: cannot find status column '", status_column, "' in data frame.")
         }
-        counted_prev <- counted_prevalence(counted_formula, index, data, registry_start_date, status_column)
+        counted_prev <- counted_prevalence(counted_formula, index_date, data, registry_start_date, status_column)
     } else {
         counted_prev <- NULL
     }
@@ -296,9 +296,10 @@ prevalence <- function(index, num_years_to_estimate,
                    full_inc_model=full_inc_model,
                    surv_models=surv_models,
                    inc_models=inc_models,
-                   index_date=index,
+                   index_date=index_date,
+                   index_dates=index_dates,
                    est_years=num_years_to_estimate,
-                   counted_incidence_rate = nrow(data) / as.numeric(difftime(index,
+                   counted_incidence_rate = nrow(data) / as.numeric(difftime(max(index_dates),
                                                                              registry_start_date,
                                                                              units='days')),
                    registry_start=registry_start_date,
