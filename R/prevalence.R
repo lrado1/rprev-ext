@@ -256,25 +256,48 @@ prevalence <- function(index, num_years_to_estimate,
                                    N_boot=N_boot)
 
         # Create column indicating whether contributed to prevalence for each year of interest
-        for (year in num_years_to_estimate) {
-            starting_incident_date <- index_date - lubridate::years(year)
-            col_name <- paste0("prev_", year, "yr")
-            prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index_date) & alive_at_index)]
+        if (K == 1) {
+            for (year in num_years_to_estimate) {
+                starting_incident_date <- index_date - lubridate::years(year)
+                col_name <- paste0("prev_", year, "yr")
+                prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index_date) & alive_at_index)]
+            }
+        } else {
+            for (year in num_years_to_estimate) {
+                for (k in seq_along(index_dates)) {
+                    starting_incident_date_k <- index_dates[k] - lubridate::years(year)
+                    alive_col <- sprintf("alive_k%03d", k)
+                    col_name <- sprintf("prev_%dyr_k%03d", year, k)
+                    prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date_k & incident_date < index_dates[k]) & get(alive_col))]
+                }
+            }
         }
 
     } else {
         prev_sim <- NULL
     }
 
+    sim_results <- if (!is.null(prev_sim)) prev_sim$results else NULL
+
     # Determine point estimates of prevalence by combining simulated and counted values
     names <- sapply(num_years_to_estimate, function(x) paste('y', x, sep=''))
-    estimates <- lapply(setNames(num_years_to_estimate, names),
-                        new_point_estimate,  # Function
-                        prev_sim$results, index_date, data,
-                        counted_formula,
-                        registry_start_date,
-                        status_column,
-                        population_size, proportion, level, precision)
+    if (K == 1) {
+        estimates <- lapply(setNames(num_years_to_estimate, names),
+                            new_point_estimate,  # Function
+                            sim_results, index_date, data,
+                            counted_formula,
+                            registry_start_date,
+                            status_column,
+                            population_size, proportion, level, precision)
+    } else {
+        estimates <- lapply(setNames(num_years_to_estimate, names),
+                            new_point_estimate_multi,
+                            sim_results, index_dates, data,
+                            counted_formula,
+                            registry_start_date,
+                            status_column,
+                            population_size, proportion, level, precision)
+    }
 
     full_surv_model <- if (!is.null(prev_sim)) prev_sim$full_surv_model else NULL
     full_inc_model <- if (!is.null(prev_sim)) prev_sim$full_inc_model else NULL
@@ -285,18 +308,30 @@ prevalence <- function(index, num_years_to_estimate,
         if (!status_column %in% colnames(data)) {
             stop("Error: cannot find status column '", status_column, "' in data frame.")
         }
-        counted_prev <- counted_prevalence(counted_formula, index_date, data, registry_start_date, status_column)
+        if (K == 1) {
+            counted_prev <- counted_prevalence(counted_formula, index_date, data, registry_start_date, status_column)
+        } else {
+            counted_prev <- vapply(index_dates,
+                                   counted_prevalence,
+                                   numeric(1),
+                                   formula=counted_formula,
+                                   data=data,
+                                   start_date=registry_start_date,
+                                   status_col=status_column)
+            names(counted_prev) <- as.character(index_dates)
+        }
     } else {
         counted_prev <- NULL
     }
     object <- list(estimates=estimates,
-                   simulated=prev_sim$results,
+                   simulated=sim_results,
                    counted=counted_prev,
                    full_surv_model=surv_model,
                    full_inc_model=full_inc_model,
                    surv_models=surv_models,
                    inc_models=inc_models,
-                   index_date=index_date,
+                   index_date=if (K == 1) index_date else NULL,
+                   index_dates=index_dates,
                    index_dates=index_dates,
                    est_years=num_years_to_estimate,
                    counted_incidence_rate = nrow(data) / as.numeric(difftime(max(index_dates),
