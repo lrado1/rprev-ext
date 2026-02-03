@@ -249,7 +249,7 @@ prevalence <- function(index, num_years_to_estimate,
             surv_model <- build_survreg(surv_formula, data, dist)
         }
 
-        prev_sim <- sim_prevalence(data, index_date, sim_start_date,
+        prev_sim <- sim_prevalence(data, index_dates, sim_start_date,
                                    inc_model, surv_model,
                                    age_column=age_column,
                                    age_dead=age_dead,
@@ -397,7 +397,7 @@ counted_prevalence <- function(formula, index, data, start_date, status_col) {
 #'   \item{surv_models}{A list containing survival models built on each bootstrap sample.}
 #'   \item{inc_models}{A list containing incidence models built on each bootstrap sample.}
 #' @importFrom survival survfit
-sim_prevalence <- function(data, index, starting_date,
+sim_prevalence <- function(data, index_dates, starting_date,
                            inc_model, surv_model,
                            age_column='age',
                            N_boot=1000,
@@ -406,13 +406,12 @@ sim_prevalence <- function(data, index, starting_date,
 
     # Needed for CRAN check
     alive_at_index <- NULL
-    time_to_index <- NULL
+    xi <- NULL
 
     data <- data[complete.cases(data), ]
     full_data <- data
 
-    covars <- extract_covars(surv_model)
-    number_incident_days <- as.numeric(difftime(index, starting_date, units='days'))
+    number_incident_days <- as.numeric(difftime(max(index_dates), starting_date, units='days'))
 
     run_sample <- function() {
         # bootstrap dataset
@@ -426,15 +425,33 @@ sim_prevalence <- function(data, index, starting_date,
         incident_population <- draw_incident_population(bs_inc, full_data, number_incident_days, extract_covars(bs_surv))
         data.table::setDT(incident_population)
 
-        # For each individual determine the time between incidence and the index
         incident_date <- as.Date(starting_date + incident_population[[1]])
-        time_to_index <- as.numeric(difftime(index, incident_date, units='days'))
+        covar_data <- incident_population[, -1, with=FALSE]
+        xi <- runif(nrow(incident_population))
 
-        # Estimate whether alive as Bernouilli trial with p = S(t)
-        surv_prob <- predict_survival_probability(bs_surv, incident_population[, -1], time_to_index)
+        for (k in seq_along(index_dates)) {
+            time_to_index_k <- as.numeric(difftime(index_dates[k], incident_date, units='days'))
+            mask <- time_to_index_k >= 0
+            surv_prob_k <- numeric(length(xi))
+            if (any(mask)) {
+                surv_prob_k[mask] <- predict_survival_probability(bs_surv, covar_data[mask], time_to_index_k[mask])
+            }
+            alive_k <- integer(length(xi))
+            alive_k[mask] <- as.integer(xi[mask] <= surv_prob_k[mask])
+            col_k <- sprintf("alive_k%03d", k)
+            incident_population[, (col_k) := alive_k]
+
+            if (!is.null(age_column) && age_column %in% colnames(incident_population)) {
+                too_old <- (incident_population[[age_column]]*DAYS_IN_YEAR + time_to_index_k) > age_dead * DAYS_IN_YEAR
+                incident_population[too_old, (col_k) := 0L]
+            }
+        }
+
         incident_population[, 'incident_date' := incident_date]
-        incident_population[, 'time_to_index' := time_to_index]
-        incident_population[, 'alive_at_index' := rbinom(length(surv_prob), size=1, prob=surv_prob)]
+        if (length(index_dates) == 1) {
+            incident_population[, 'alive_at_index' := get("alive_k001")]
+        }
+
         list(pop=incident_population,
              surv=bs_surv,
              inc=bs_inc)
@@ -450,15 +467,15 @@ sim_prevalence <- function(data, index, starting_date,
     # Combine incident population into single table
     results <- data.table::rbindlist(lapply(all_results, function(x) x$pop), idcol='sim')
 
-    # Force death at 100 if possible
-    if (!is.null(age_column) & age_column %in% colnames(results)) {
-        results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
-    } else {
+    if (is.null(age_column) || !(age_column %in% colnames(results))) {
         message("No column found for age in ", age_column, ", so cannot assume death at 100 years of age. Be careful of 'infinite' survival times.")
     }
 
     # These intermediary columns aren't useful for the user and would just clutter up the output
-    results[, c('time_to_index', 'time_to_entry') := NULL]
+    helper_cols <- intersect(c('time_to_index', 'time_to_entry'), names(results))
+    if (length(helper_cols) > 0) {
+        results[, (helper_cols) := NULL]
+    }
 
     list(results=results,
          full_surv_model=surv_model,
