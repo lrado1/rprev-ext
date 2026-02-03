@@ -256,19 +256,16 @@ prevalence <- function(index, num_years_to_estimate,
                                    N_boot=N_boot)
 
         # Create column indicating whether contributed to prevalence for each year of interest
-        if (K == 1) {
-            for (year in num_years_to_estimate) {
-                starting_incident_date <- index_date - lubridate::years(year)
-                col_name <- paste0("prev_", year, "yr")
-                prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date & incident_date < index_date) & alive_at_index)]
-            }
-        } else {
-            for (year in num_years_to_estimate) {
-                for (k in seq_along(index_dates)) {
-                    starting_incident_date_k <- index_dates[k] - lubridate::years(year)
-                    alive_col <- sprintf("alive_k%03d", k)
-                    col_name <- sprintf("prev_%dyr_k%03d", year, k)
-                    prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date_k & incident_date < index_dates[k]) & get(alive_col))]
+        for (year in num_years_to_estimate) {
+            for (k in seq_along(index_dates)) {
+                starting_incident_date_k <- index_dates[k] - lubridate::years(year)
+                alive_col <- sprintf("alive_k%03d", k)
+                col_name <- sprintf("prev_%dyr_k%03d", year, k)
+                prev_sim$results[, (col_name) := as.numeric((incident_date > starting_incident_date_k & incident_date < index_dates[k]) & get(alive_col))]
+                if (K == 1) {
+                    # Backward compatible alias for single-index outputs
+                    legacy_col <- paste0("prev_", year, "yr")
+                    prev_sim$results[, (legacy_col) := get(col_name)]
                 }
             }
         }
@@ -503,6 +500,11 @@ sim_prevalence <- function(data, index_dates, starting_date,
 
     # Combine incident population into single table
     results <- data.table::rbindlist(lapply(all_results, function(x) x$pop), idcol='sim')
+
+    # Provide legacy single-index column for compatibility
+    if (length(index_dates) == 1) {
+        results[, alive_at_index := get("alive_k001")]
+    }
 
     if (is.null(age_column) || !(age_column %in% colnames(results))) {
         message("No column found for age in ", age_column, ", so cannot assume death at 100 years of age. Be careful of 'infinite' survival times.")
