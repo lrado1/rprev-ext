@@ -374,8 +374,10 @@ prevalence <- function(index, num_years_to_estimate,
     }
 
 
-    if (!is.null(prev_sim)) {
+    if (!is.null(prev_sim) && K == 1) {
         object$pval <- test_prevalence_fit(object)
+    } else if (K > 1) {
+        object$pval <- NA
     }
 
     attr(object, 'class') <- 'prevalence'
@@ -521,18 +523,28 @@ sim_prevalence <- function(data, index_dates, starting_date,
 
 #' @export
 print.prevalence <- function(x, ...) {
-    cat(paste0("Estimated prevalence at ", x$index_date, ":\n"))
-    lapply(names(x$estimates), function(item) {
-        year <- strsplit(item, 'y')[[1]][2]
-        abs_prev_est <- x$estimates[[item]][1]
-        if (length(x$estimates[[item]]) > 1) {
-            rel_prev <- x$estimates[[item]][2]
-            rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
-        } else {
-            rel_prev_est <- NULL
+    if (!is.null(x$index_dates) && length(x$index_dates) > 1) {
+        cat("Estimated prevalence:\n")
+        out <- data.frame(index_date=x$index_dates, check.names=FALSE, stringsAsFactors=FALSE)
+        for (item in names(x$estimates)) {
+            year <- strsplit(item, 'y')[[1]][2]
+            out[[paste0('y', year)]] <- x$estimates[[item]]$absolute.prevalence
         }
-        cat(paste(year, "years:", abs_prev_est, rel_prev_est, '\n'))
-    })
+        print(out, row.names=FALSE)
+    } else {
+        cat(paste0("Estimated prevalence at ", x$index_date, ":\n"))
+        lapply(names(x$estimates), function(item) {
+            year <- strsplit(item, 'y')[[1]][2]
+            abs_prev_est <- x$estimates[[item]][1]
+            if (length(x$estimates[[item]]) > 1) {
+                rel_prev <- x$estimates[[item]][2]
+                rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
+            } else {
+                rel_prev_est <- NULL
+            }
+            cat(paste(year, "years:", abs_prev_est, rel_prev_est, '\n'))
+        })
+    }
 }
 
 #' @export
@@ -548,12 +560,16 @@ summary.prevalence <- function(object, ...) {
     cat("\n")
 
     cat("Registry Data\n~~~~~~~~~~~~~\n")
-    cat("Index date:", as.character(object$index_date), "\n")
+    if (!is.null(object$index_dates) && length(object$index_dates) > 1) {
+        cat("Index dates:", paste(as.character(object$index_dates), collapse=", "), "\n")
+    } else {
+        cat("Index date:", as.character(object$index_date), "\n")
+    }
     cat("Start date:", as.character(object$registry_start), "\n")
     cat("Overall incidence rate:", round(object$counted_incidence_rate, 3), "\n")
     cat("Counted prevalent cases:", object$counted, "\n")
 
-    if (!all(is.na(object$simulated))) {
+    if (!is.null(object$simulated)) {
         cat("\nSimulation\n~~~~~~~~~~\n")
         cat("Iterations:", object$N_boot, "\n")
         cat("Average incidence rate:",
