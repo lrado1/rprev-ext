@@ -307,10 +307,6 @@ prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
             if (!all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
                 stop("Error: multi-index simulation requires k_start, k_end, and incident_date in simulated results.")
             }
-            prev_sim$prev_counts <- build_prev_counts_multiindex(prev_sim$results,
-                                                                 index_dates,
-                                                                 num_years_to_estimate)
-            prev_sim$index_dates <- index_dates
         }
 
     } else {
@@ -328,51 +324,25 @@ prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
                             status_column,
                             population_size, proportion, level, precision)
     } else {
-        sim_prev_counts <- if (!is.null(prev_sim) && !is.null(prev_sim$sim_prev_counts)) {
-            prev_sim$sim_prev_counts
-        } else if (!is.null(prev_sim)) {
-            prev_sim$prev_counts
-        } else {
-            NULL
-        }
-        sim_prev_counts_pre_registry <- if (!is.null(prev_sim)) {
-            prev_sim$sim_prev_counts_pre_registry
-        } else {
-            NULL
-        }
-
-        if (is.null(sim_prev_counts) &&
-            !is.null(prev_sim) &&
-            all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
+        sim_agg <- NULL
+        if (!is.null(prev_sim)) {
             sim_prev_counts <- build_prev_counts_multiindex(prev_sim$results,
                                                             index_dates,
                                                             num_years_to_estimate)
-        }
-        if (is.null(sim_prev_counts_pre_registry) &&
-            !is.null(prev_sim) &&
-            all(c("k_start", "k_end", "incident_date") %in% colnames(prev_sim$results))) {
             sim_prev_counts_pre_registry <- build_prev_counts_multiindex(prev_sim$results[incident_date < registry_start_date],
                                                                          index_dates,
                                                                          num_years_to_estimate)
-        }
 
-        sim_agg <- NULL
-        if (!is.null(sim_prev_counts)) {
             total <- as.data.frame(sim_prev_counts)
             total$index_dates <- index_dates[total$k]
             total$contrib_total <- total$prev_count
             total <- total[, c("sim", "index_dates", "year", "contrib_total")]
 
-            if (is.null(sim_prev_counts_pre_registry)) {
-                total$contrib_pre_registry <- NA_real_
-                sim_agg <- total
-            } else {
-                pre <- as.data.frame(sim_prev_counts_pre_registry)
-                pre$index_dates <- index_dates[pre$k]
-                pre$contrib_pre_registry <- pre$prev_count
-                pre <- pre[, c("sim", "index_dates", "year", "contrib_pre_registry")]
-                sim_agg <- merge(total, pre, by=c("sim", "index_dates", "year"), all=TRUE)
-            }
+            pre <- as.data.frame(sim_prev_counts_pre_registry)
+            pre$index_dates <- index_dates[pre$k]
+            pre$contrib_pre_registry <- pre$prev_count
+            pre <- pre[, c("sim", "index_dates", "year", "contrib_pre_registry")]
+            sim_agg <- merge(total, pre, by=c("sim", "index_dates", "year"), all=TRUE)
         }
 
         estimates <- lapply(setNames(num_years_to_estimate, names),
@@ -420,20 +390,9 @@ prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
     counted_incidence_rate <- nrow(data) / as.numeric(difftime(t_ref,
                                                                registry_start_date,
                                                                units='days'))
-    counted_incidence_rate_by_index <- vapply(index_dates,
-                                              function(tk) nrow(data) / as.numeric(difftime(tk,
-                                                                                           registry_start_date,
-                                                                                           units='days')),
-                                              numeric(1))
 
     object <- list(estimates=estimates,
                    simulated=prev_sim$results,
-                   sim_prev_counts=if (!is.null(prev_sim)) {
-                       if (!is.null(prev_sim$sim_prev_counts)) prev_sim$sim_prev_counts else prev_sim$prev_counts
-                   } else {
-                       NULL
-                   },
-                   sim_prev_counts_pre_registry=if (!is.null(prev_sim)) prev_sim$sim_prev_counts_pre_registry else NULL,
                    counted_by_index=counted_prev,
                    counted=counted_legacy,
                    full_surv_model=full_surv_model,
@@ -441,10 +400,8 @@ prevalence <- function(index=NULL, index_dates=NULL, num_years_to_estimate,
                    surv_models=surv_models,
                    inc_models=inc_models,
                    index_dates=index_dates,
-                   K=K,
                    est_years=num_years_to_estimate,
                    counted_incidence_rate=counted_incidence_rate,
-                   counted_incidence_rate_by_index=counted_incidence_rate_by_index,
                    registry_start=registry_start_date,
                    proportion=proportion,
                    status_col=status_column,
@@ -553,16 +510,15 @@ build_prev_counts_multiindex <- function(results, index_dates, years) {
     dt_exp[, year := rep(years, times = nrow(dt))]
 
     # Strict window: incident_date < t_k and incident_date > t_k - years(year).
-    k_inc_start <- findInterval(dt_exp$incident_date, idx_dates) + 1L
-    inc_end_date <- dt_exp$incident_date + lubridate::years(dt_exp$year)
-    k_inc_end <- findInterval(inc_end_date - 1, idx_dates)
+    dt_exp[, k_inc_start := findInterval(incident_date, idx_dates) + 1L]
+    dt_exp[, k_inc_end := findInterval(incident_date + lubridate::years(year) - 1, idx_dates)]
 
-    k_contrib_start <- pmax(dt_exp$k_start, k_inc_start)
-    k_contrib_end <- pmin(dt_exp$k_end, k_inc_end)
+    dt_exp[, k_contrib_start := pmax(k_start, k_inc_start)]
+    dt_exp[, k_contrib_end := pmin(k_end, k_inc_end)]
 
-    valid <- !is.na(k_contrib_start) & !is.na(k_contrib_end) &
-        k_contrib_start <= k_contrib_end &
-        k_contrib_start <= K & k_contrib_end >= 1L
+    valid <- !is.na(dt_exp$k_contrib_start) & !is.na(dt_exp$k_contrib_end) &
+        dt_exp$k_contrib_start <= dt_exp$k_contrib_end &
+        dt_exp$k_contrib_start <= K & dt_exp$k_contrib_end >= 1L
 
     if (!any(valid)) {
         return(data.table::data.table(sim=integer(),
