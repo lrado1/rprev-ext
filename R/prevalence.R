@@ -550,10 +550,15 @@ summary.prevalence <- function(object, ...) {
     cat("Overall incidence rate:", round(object$counted_incidence_rate, 3), "\n")
     if (!is.null(object$counted)) {
         if (length(object$counted) > 1) {
-            counted_line <- paste(paste(names(object$counted), object$counted, sep=": "), collapse="; ")
-            cat("Counted prevalent cases:", counted_line, "\n")
+            cat("Counted prevalent cases:\n")
+            print(data.frame(index_date=names(object$counted),
+                             counted=as.numeric(object$counted)),
+                  row.names=FALSE)
         } else {
-            cat("Counted prevalent cases:", object$counted, "\n")
+            cat("Counted prevalent cases:\n")
+            print(data.frame(index_date=as.character(index_dates[1]),
+                             counted=as.numeric(object$counted)),
+                  row.names=FALSE)
         }
     } else {
         cat("Counted prevalent cases: NA\n")
