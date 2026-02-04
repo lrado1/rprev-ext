@@ -208,12 +208,19 @@ prevalence <- function(index, num_years_to_estimate,
         registry_start_date <- min(data[[incident_column]])
     }
 
-    index <- suppressWarnings(lubridate::ymd(index))
-    if (is.na(index)) {
-        stop("Error: Index date '", index, "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format.")
+    raw_index <- index
+    index_dates <- suppressWarnings(lubridate::ymd(index))
+    if (any(is.na(index_dates))) {
+        bad_inputs <- raw_index[is.na(index_dates)]
+        stop("Error: Index date(s) '", paste(bad_inputs, collapse=", "),
+             "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format.")
     }
+    index_dates <- sort(unique(index_dates))
+    index_date <- index_dates[1]
+    # Preserve existing scalar variable for downstream code; will be unified later
+    index <- index_date
     registry_start_date <- lubridate::ymd(registry_start_date)
-    sim_start_date <- index - lubridate::years(max(num_years_to_estimate))
+    sim_start_date <- min(index_dates) - lubridate::years(max(num_years_to_estimate))
 
     # NEED SIMULATION:
     #   - have N years > R registry years available
