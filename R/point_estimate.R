@@ -110,7 +110,7 @@ new_point_estimate_multi <- function(year, sim_results, index_dates, registry_da
         col_name <- sprintf(col_template, k)
         est <- new_point_estimate(year, sim_results, index_dates[k], registry_data, prev_formula, registry_start_date, status_col,
                                   population_size, proportion, level, precision, col_name=col_name)
-        data.frame(index_date=index_dates[k], t(as.data.frame(est)), check.names=FALSE)
+        data.frame(index_date=index_dates[k], as.data.frame(est, check.names=FALSE), check.names=FALSE)
     })
     do.call(rbind, estimates)
 }

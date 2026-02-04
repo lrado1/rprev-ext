@@ -535,33 +535,34 @@ sim_prevalence <- function(data, index_dates, starting_date,
 #' @export
 print.prevalence <- function(x, ...) {
     cat("Estimated prevalence:\n")
-    K <- if (!is.null(x$index_dates)) length(x$index_dates) else 1
-    lapply(names(x$estimates), function(item) {
+    rows <- list()
+    for (item in names(x$estimates)) {
         year <- strsplit(item, 'y')[[1]][2]
         est <- x$estimates[[item]]
-        if (is.data.frame(est)) {
-            value_cols <- setdiff(names(est), "index_date")
-            for (i in seq_len(nrow(est))) {
-                abs_prev_est <- est[i, value_cols[1], drop=TRUE]
-                if (length(value_cols) > 1) {
-                    rel_prev <- est[i, value_cols[2], drop=TRUE]
-                    rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
-                } else {
-                    rel_prev_est <- NULL
-                }
-                cat(paste(year, "years @", est$index_date[i], ":", abs_prev_est, rel_prev_est, '\n'))
+        idx_date <- if (!is.null(x$index_dates)) x$index_dates else x$index_date
+
+        make_rows <- function(df, idx) {
+            if (!"index_date" %in% names(df)) {
+                df$index_date <- idx
             }
-        } else {
-            abs_prev_est <- est[[1]]
-            if (length(est) > 1) {
-                rel_prev <- est[[2]]
-                rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
-            } else {
-                rel_prev_est <- NULL
-            }
-            cat(paste(year, "years @", x$index_date, ":", abs_prev_est, rel_prev_est, '\n'))
+            df$years <- as.numeric(year)
+            abs_cols <- grep("^absolute", names(df), value=TRUE)
+            other_cols <- setdiff(names(df), c("index_date", "years", abs_cols))
+            df <- df[, c("index_date", "years", abs_cols, other_cols), drop=FALSE]
+            df
         }
-    })
+
+        if (is.data.frame(est)) {
+            rows[[item]] <- make_rows(est, idx_date)
+        } else {
+            vec <- unlist(est)
+            df <- as.data.frame(as.list(vec), check.names=FALSE, stringsAsFactors=FALSE)
+            rows[[item]] <- make_rows(df, idx_date)
+        }
+    }
+    table_out <- do.call(rbind, rows)
+    table_out <- table_out[order(table_out$index_date, table_out$years), , drop=FALSE]
+    print(table_out, row.names=FALSE)
 }
 
 #' @export
