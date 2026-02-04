@@ -38,12 +38,32 @@ test_dispersion <- function(inc, N_sim = 1e5) {
 #' @family prevalence functions
 test_prevalence_fit <- function(object) {
     # Needed for CRAN
-    prev_registry <- NULL
     incident_date <- NULL
     sim <- NULL
 
-    alive_col <- if ("alive_k001" %in% names(object$simulated)) "alive_k001" else "alive_at_index"
-    object$simulated[, prev_registry := as.numeric(incident_date >= object$registry_start & get(alive_col))]
-    predicted <- round(mean(object$simulated[, sum(prev_registry), by=sim][[2]]))
-    poisson.test(c(object$counted, predicted))$p.value
+    sim_dt <- object$simulated
+    idx_dates <- if (!is.null(object$index_dates)) object$index_dates else object$index_date
+    if (is.null(sim_dt) || length(idx_dates) == 0 || is.null(object$counted)) {
+        return(NA_real_)
+    }
+
+    # Single index: keep prior behaviour
+    if (length(idx_dates) == 1) {
+        alive_col <- if ("alive_k001" %in% names(sim_dt)) "alive_k001" else "alive_at_index"
+        contribs <- sim_dt[, sum((incident_date >= object$registry_start) & (get(alive_col) == 1)), by=sim][[2]]
+        predicted <- round(mean(contribs))
+        return(poisson.test(c(object$counted, predicted))$p.value)
+    }
+
+    # Multi-index: per-index p-value vector
+    pvals <- vapply(seq_along(idx_dates), function(k) {
+        alive_col <- sprintf("alive_k%03d", k)
+        if (!alive_col %in% names(sim_dt)) return(NA_real_)
+        contribs <- sim_dt[, sum((incident_date >= object$registry_start) & (get(alive_col) == 1)), by=sim][[2]]
+        predicted <- round(mean(contribs))
+        counted_k <- if (!is.null(names(object$counted))) object$counted[[as.character(idx_dates[k])]] else object$counted[k]
+        poisson.test(c(counted_k, predicted))$p.value
+    }, numeric(1))
+    names(pvals) <- as.character(idx_dates)
+    pvals
 }

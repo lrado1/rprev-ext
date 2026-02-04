@@ -350,11 +350,7 @@ prevalence <- function(index, num_years_to_estimate,
 
 
     if (!is.null(prev_sim)) {
-        if (K == 1) {
-            object$pval <- test_prevalence_fit(object)
-        } else {
-            object$pval <- NA_real_
-        }
+        object$pval <- test_prevalence_fit(object)
     }
 
     attr(object, 'class') <- 'prevalence'
@@ -569,10 +565,13 @@ summary.prevalence <- function(object, ...) {
         cat("Average incidence rate:",
             round(object$simulated[, length(incident_date), by=sim][, mean(V1)] / (max(object$est_years)*DAYS_IN_YEAR), 3),
             "\n")
-        if (!is.null(object$pval) && !is.na(object$pval)) {
-            cat("P-value:", object$pval)
-        } else if (length(index_dates) > 1) {
-            cat("P-value: not computed for multiple index dates")
+        if (!is.null(object$pval) && any(!is.na(object$pval))) {
+            if (length(object$pval) == 1) {
+                cat("P-value:", object$pval)
+            } else {
+                cat("P-values:\n")
+                print(data.frame(index_date=names(object$pval), pval=object$pval), row.names=FALSE)
+            }
         }
     }
 }
