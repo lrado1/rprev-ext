@@ -501,7 +501,20 @@ sim_prevalence <- function(data, index_dates, starting_date,
 
     # Force death at 100 if possible
     if (!is.null(age_column) & age_column %in% colnames(results)) {
-        results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
+        if (length(index_dates) == 1) {
+            if ("time_to_index" %in% names(results)) {
+                results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
+            } else {
+                time_to_index <- as.numeric(difftime(index_dates[1], results$incident_date, units='days'))
+                results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
+            }
+        } else {
+            for (k in seq_along(index_dates)) {
+                time_to_index_k <- as.numeric(difftime(index_dates[k], results$incident_date, units='days'))
+                alive_col <- sprintf("alive_k%03d", k)
+                results[(get(age_column)*DAYS_IN_YEAR + time_to_index_k) > age_dead * DAYS_IN_YEAR, (alive_col) := 0L]
+            }
+        }
     } else {
         message("No column found for age in ", age_column, ", so cannot assume death at 100 years of age. Be careful of 'infinite' survival times.")
     }
