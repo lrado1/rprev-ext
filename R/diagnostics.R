@@ -39,11 +39,11 @@ test_dispersion <- function(inc, N_sim = 1e5) {
 test_prevalence_fit <- function(object) {
     # Needed for CRAN
     prev_registry <- NULL
-    alive_at_index <- NULL
     incident_date <- NULL
     sim <- NULL
 
-    object$simulated[, prev_registry := as.numeric(incident_date >= object$registry_start & alive_at_index)]
+    alive_col <- if ("alive_k001" %in% names(object$simulated)) "alive_k001" else "alive_at_index"
+    object$simulated[, prev_registry := as.numeric(incident_date >= object$registry_start & get(alive_col))]
     predicted <- round(mean(object$simulated[, sum(prev_registry), by=sim][[2]]))
     poisson.test(c(object$counted, predicted))$p.value
 }

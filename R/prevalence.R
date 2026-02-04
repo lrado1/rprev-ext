@@ -154,7 +154,6 @@ prevalence <- function(index, num_years_to_estimate,
                        precision=2) {
 
     # Needed for CRAN check
-    alive_at_index <- NULL
     incident_date <- NULL
 
     if (is.null(incident_column)) {
@@ -218,8 +217,6 @@ prevalence <- function(index, num_years_to_estimate,
     index_dates <- sort(unique(index_dates))
     index_date <- index_dates[1]
     K <- length(index_dates)
-    # Preserve existing scalar variable for downstream code; will be unified later
-    index <- index_date
     registry_start_date <- lubridate::ymd(registry_start_date)
     sim_start_date <- min(index_dates) - lubridate::years(max(num_years_to_estimate))
 
@@ -269,10 +266,6 @@ prevalence <- function(index, num_years_to_estimate,
                                                              incident_date < index_k) &
                                                             get(alive_col) == 1)]
             }
-            if (K == 1) {
-                alias_col <- paste0("prev_", year, "yr")
-                prev_sim$results[, (alias_col) := get(sprintf("prev_%dyr_k%03d", year, 1))]
-            }
         }
 
     } else {
@@ -282,23 +275,13 @@ prevalence <- function(index, num_years_to_estimate,
     # Determine point estimates of prevalence by combining simulated and counted values
     sim_results <- if (!is.null(prev_sim)) prev_sim$results else NULL
     names <- sapply(num_years_to_estimate, function(x) paste('y', x, sep=''))
-    if (K == 1) {
-        estimates <- lapply(setNames(num_years_to_estimate, names),
-                            new_point_estimate,  # Function
-                            sim_results, index_date, data,
-                            counted_formula,
-                            registry_start_date,
-                            status_column,
-                            population_size, proportion, level, precision)
-    } else {
-        estimates <- lapply(setNames(num_years_to_estimate, names),
-                            new_point_estimate_multi,
-                            sim_results, index_dates, data,
-                            counted_formula,
-                            registry_start_date,
-                            status_column,
-                            population_size, proportion, level, precision)
-    }
+    estimates <- lapply(setNames(num_years_to_estimate, names),
+                        new_point_estimate_multi,
+                        sim_results, index_dates, data,
+                        counted_formula,
+                        registry_start_date,
+                        status_column,
+                        population_size, proportion, level, precision)
 
     full_surv_model <- if (!is.null(prev_sim)) prev_sim$full_surv_model else NULL
     full_inc_model <- if (!is.null(prev_sim)) prev_sim$full_inc_model else NULL
@@ -437,7 +420,6 @@ sim_prevalence <- function(data, index_dates, starting_date,
                            {
 
     # Needed for CRAN check
-    alive_at_index <- NULL
     xi <- NULL
 
     data <- data[complete.cases(data), ]
@@ -480,9 +462,6 @@ sim_prevalence <- function(data, index_dates, starting_date,
         }
 
         incident_population[, 'incident_date' := incident_date]
-        if (length(index_dates) == 1) {
-            incident_population[, 'alive_at_index' := get("alive_k001")]
-        }
 
         list(pop=incident_population,
              surv=bs_surv,
@@ -501,19 +480,10 @@ sim_prevalence <- function(data, index_dates, starting_date,
 
     # Force death at 100 if possible
     if (!is.null(age_column) & age_column %in% colnames(results)) {
-        if (length(index_dates) == 1) {
-            if ("time_to_index" %in% names(results)) {
-                results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
-            } else {
-                time_to_index <- as.numeric(difftime(index_dates[1], results$incident_date, units='days'))
-                results[(get(age_column)*DAYS_IN_YEAR + time_to_index) > age_dead * DAYS_IN_YEAR, alive_at_index := 0]
-            }
-        } else {
-            for (k in seq_along(index_dates)) {
-                time_to_index_k <- as.numeric(difftime(index_dates[k], results$incident_date, units='days'))
-                alive_col <- sprintf("alive_k%03d", k)
-                results[(get(age_column)*DAYS_IN_YEAR + time_to_index_k) > age_dead * DAYS_IN_YEAR, (alive_col) := 0L]
-            }
+        for (k in seq_along(index_dates)) {
+            time_to_index_k <- as.numeric(difftime(index_dates[k], results$incident_date, units='days'))
+            alive_col <- sprintf("alive_k%03d", k)
+            results[(get(age_column)*DAYS_IN_YEAR + time_to_index_k) > age_dead * DAYS_IN_YEAR, (alive_col) := 0L]
         }
     } else {
         message("No column found for age in ", age_column, ", so cannot assume death at 100 years of age. Be careful of 'infinite' survival times.")
