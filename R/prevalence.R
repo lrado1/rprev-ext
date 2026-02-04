@@ -534,17 +534,33 @@ sim_prevalence <- function(data, index_dates, starting_date,
 
 #' @export
 print.prevalence <- function(x, ...) {
-    cat(paste0("Estimated prevalence at ", x$index_date, ":\n"))
+    cat("Estimated prevalence:\n")
+    K <- if (!is.null(x$index_dates)) length(x$index_dates) else 1
     lapply(names(x$estimates), function(item) {
         year <- strsplit(item, 'y')[[1]][2]
-        abs_prev_est <- x$estimates[[item]][1]
-        if (length(x$estimates[[item]]) > 1) {
-            rel_prev <- x$estimates[[item]][2]
-            rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
+        est <- x$estimates[[item]]
+        if (is.data.frame(est)) {
+            value_cols <- setdiff(names(est), "index_date")
+            for (i in seq_len(nrow(est))) {
+                abs_prev_est <- est[i, value_cols[1], drop=TRUE]
+                if (length(value_cols) > 1) {
+                    rel_prev <- est[i, value_cols[2], drop=TRUE]
+                    rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
+                } else {
+                    rel_prev_est <- NULL
+                }
+                cat(paste(year, "years @", est$index_date[i], ":", abs_prev_est, rel_prev_est, '\n'))
+            }
         } else {
-            rel_prev_est <- NULL
+            abs_prev_est <- est[[1]]
+            if (length(est) > 1) {
+                rel_prev <- est[[2]]
+                rel_prev_est <- paste0("(", rel_prev, " per ", x$proportion, ")")
+            } else {
+                rel_prev_est <- NULL
+            }
+            cat(paste(year, "years @", x$index_date, ":", abs_prev_est, rel_prev_est, '\n'))
         }
-        cat(paste(year, "years:", abs_prev_est, rel_prev_est, '\n'))
     })
 }
 
@@ -561,17 +577,31 @@ summary.prevalence <- function(object, ...) {
     cat("\n")
 
     cat("Registry Data\n~~~~~~~~~~~~~\n")
-    cat("Index date:", as.character(object$index_date), "\n")
+    index_dates <- if (!is.null(object$index_dates)) object$index_dates else object$index_date
+    cat("Index date(s):", paste(as.character(index_dates), collapse=", "), "\n")
     cat("Start date:", as.character(object$registry_start), "\n")
     cat("Overall incidence rate:", round(object$counted_incidence_rate, 3), "\n")
-    cat("Counted prevalent cases:", object$counted, "\n")
+    if (!is.null(object$counted)) {
+        if (length(object$counted) > 1) {
+            counted_line <- paste(paste(names(object$counted), object$counted, sep=": "), collapse="; ")
+            cat("Counted prevalent cases:", counted_line, "\n")
+        } else {
+            cat("Counted prevalent cases:", object$counted, "\n")
+        }
+    } else {
+        cat("Counted prevalent cases: NA\n")
+    }
 
-    if (!all(is.na(object$simulated))) {
+    if (!is.null(object$simulated)) {
         cat("\nSimulation\n~~~~~~~~~~\n")
         cat("Iterations:", object$N_boot, "\n")
         cat("Average incidence rate:",
             round(object$simulated[, length(incident_date), by=sim][, mean(V1)] / (max(object$est_years)*DAYS_IN_YEAR), 3),
             "\n")
-        cat("P-value:", object$pval)
+        if (!is.null(object$pval) && !is.na(object$pval)) {
+            cat("P-value:", object$pval)
+        } else if (length(index_dates) > 1) {
+            cat("P-value: not computed for multiple index dates")
+        }
     }
 }
