@@ -217,6 +217,7 @@ prevalence <- function(index, num_years_to_estimate,
     }
     index_dates <- sort(unique(index_dates))
     index_date <- index_dates[1]
+    K <- length(index_dates)
     # Preserve existing scalar variable for downstream code; will be unified later
     index <- index_date
     registry_start_date <- lubridate::ymd(registry_start_date)
