@@ -49,6 +49,14 @@ test_prevalence_fit <- function(object) {
     if (is.null(sim_dt) || is.null(object$counted)) {
         return(NA_real_)
     }
+    if (is.null(names(object$counted)) || any(names(object$counted) == "")) {
+        stop("Error: prevalence object 'counted' must be a named vector keyed by 'index_dates'.")
+    }
+    missing_idx <- setdiff(as.character(idx_dates), names(object$counted))
+    if (length(missing_idx) > 0) {
+        stop("Error: prevalence object 'counted' is missing index date(s): ",
+             paste(missing_idx, collapse=", "), ".")
+    }
 
     # Per-index p-value(s), for both single- and multi-index objects
     pvals <- vapply(seq_along(idx_dates), function(k) {
@@ -58,7 +66,7 @@ test_prevalence_fit <- function(object) {
         }
         contribs <- sim_dt[, sum((incident_date >= object$registry_start) & (get(alive_col) == 1)), by=sim][[2]]
         predicted <- round(mean(contribs))
-        counted_k <- if (!is.null(names(object$counted))) object$counted[[as.character(idx_dates[k])]] else object$counted[k]
+        counted_k <- object$counted[[as.character(idx_dates[k])]]
         poisson.test(c(counted_k, predicted))$p.value
     }, numeric(1))
     names(pvals) <- as.character(idx_dates)
