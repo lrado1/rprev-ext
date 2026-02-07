@@ -505,7 +505,10 @@ print.prevalence <- function(x, ...) {
     for (item in names(x$estimates)) {
         year <- strsplit(item, 'y')[[1]][2]
         est <- x$estimates[[item]]
-        idx_date <- if (!is.null(x$index_dates)) x$index_dates else x$index_date
+        idx_date <- x$index_dates
+        if (is.null(idx_date) || length(idx_date) == 0) {
+            stop("Error: prevalence object must contain non-empty 'index_dates'.")
+        }
 
         make_rows <- function(df, idx) {
             if (!"index_date" %in% names(df)) {
@@ -544,7 +547,10 @@ summary.prevalence <- function(object, ...) {
     cat("\n")
 
     cat("Registry Data\n~~~~~~~~~~~~~\n")
-    index_dates <- if (!is.null(object$index_dates)) object$index_dates else object$index_date
+    index_dates <- object$index_dates
+    if (is.null(index_dates) || length(index_dates) == 0) {
+        stop("Error: prevalence object must contain non-empty 'index_dates'.")
+    }
     cat("Index date(s):", paste(as.character(index_dates), collapse=", "), "\n")
     cat("Start date:", as.character(object$registry_start), "\n")
     cat("Overall incidence rate:", round(object$counted_incidence_rate, 3), "\n")

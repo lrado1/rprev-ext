@@ -42,8 +42,11 @@ test_prevalence_fit <- function(object) {
     sim <- NULL
 
     sim_dt <- object$simulated
-    idx_dates <- if (!is.null(object$index_dates)) object$index_dates else object$index_date
-    if (is.null(sim_dt) || length(idx_dates) == 0 || is.null(object$counted)) {
+    idx_dates <- object$index_dates
+    if (is.null(idx_dates) || length(idx_dates) == 0) {
+        stop("Error: prevalence object must contain non-empty 'index_dates'.")
+    }
+    if (is.null(sim_dt) || is.null(object$counted)) {
         return(NA_real_)
     }
 
