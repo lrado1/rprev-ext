@@ -505,29 +505,25 @@ print.prevalence <- function(x, ...) {
     for (item in names(x$estimates)) {
         year <- strsplit(item, 'y')[[1]][2]
         est <- x$estimates[[item]]
-        idx_date <- x$index_dates
-        if (is.null(idx_date) || length(idx_date) == 0) {
+        if (is.null(x$index_dates) || length(x$index_dates) == 0) {
             stop("Error: prevalence object must contain non-empty 'index_dates'.")
         }
 
-        make_rows <- function(df, idx) {
-            if (!"index_date" %in% names(df)) {
-                df$index_date <- idx
-            }
+        if (!is.data.frame(est)) {
+            stop("Error: prevalence object estimates must be data.frame entries.")
+        }
+        if (!"index_date" %in% names(est)) {
+            stop("Error: prevalence object estimate data.frame must contain 'index_date'.")
+        }
+
+        make_rows <- function(df) {
             df$years <- as.numeric(year)
             abs_cols <- grep("^absolute", names(df), value=TRUE)
             other_cols <- setdiff(names(df), c("index_date", "years", abs_cols))
             df <- df[, c("index_date", "years", abs_cols, other_cols), drop=FALSE]
             df
         }
-
-        if (is.data.frame(est)) {
-            rows[[item]] <- make_rows(est, idx_date)
-        } else {
-            vec <- unlist(est)
-            df <- as.data.frame(as.list(vec), check.names=FALSE, stringsAsFactors=FALSE)
-            rows[[item]] <- make_rows(df, idx_date)
-        }
+        rows[[item]] <- make_rows(est)
     }
     table_out <- do.call(rbind, rows)
     table_out <- table_out[order(table_out$index_date, table_out$years), , drop=FALSE]
