@@ -1,10 +1,13 @@
 new_point_estimate <- function(year, sim_results, index, registry_data, prev_formula, registry_start_date, status_col,
                                population_size=NULL, proportion=1e5,
                                level=0.95, precision=2,
-                               col_name=NULL) {
+                               col_name) {
     if (year <= 0) {
         warning("Cannot estimate prevalence for a non-positive value of num_year_to_estimate.")
         return(list(absolute.prevalence=0))
+    }
+    if (missing(col_name) || is.null(col_name) || !nzchar(col_name)) {
+        stop("Error: 'col_name' must be provided as a non-empty prevalence contribution column name.")
     }
 
     # CRAN check
@@ -22,10 +25,6 @@ new_point_estimate <- function(year, sim_results, index, registry_data, prev_for
         # See if appending prevalence to simulation data or it's entirely counted
         if (initial_date < registry_start_date) {
             stopifnot(!is.null(sim_results))
-
-            if (is.null(col_name)) {
-                col_name <- paste0("prev_", year, "yr")
-            }
             sim_contributions <- sim_results[incident_date < registry_start_date][, sum(get(col_name)), by=sim][[2]]  # Return results column
             the_estimate <- count_prev + mean(sim_contributions)
 
@@ -39,9 +38,6 @@ new_point_estimate <- function(year, sim_results, index, registry_data, prev_for
         }
     } else {
         # If don't have counted data then prevalence estimates are entirely simulated
-        if (is.null(col_name)) {
-            col_name <- paste0("prev_", year, "yr")
-        }
         sim_contributions <- sim_results[, sum(get(col_name)), by=sim][[2]]  # Return results column
         the_estimate <- mean(sim_contributions)
 
