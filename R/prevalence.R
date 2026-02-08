@@ -215,7 +215,6 @@ prevalence <- function(index, num_years_to_estimate,
              "' cannot be parsed as a date. Please enter it as a string in %Y%m%d or %Y-%m-%d format.")
     }
     index_dates <- sort(unique(index_dates))
-    index_date <- index_dates[1]
     K <- length(index_dates)
     registry_start_date <- lubridate::ymd(registry_start_date)
     sim_start_date <- min(index_dates) - lubridate::years(max(num_years_to_estimate))
@@ -306,7 +305,6 @@ prevalence <- function(index, num_years_to_estimate,
                    full_inc_model=full_inc_model,
                    surv_models=surv_models,
                    inc_models=inc_models,
-                   index_date=index_date,
                    index_dates=index_dates,
                    est_years=num_years_to_estimate,
                    counted_incidence_rate = nrow(data) / as.numeric(difftime(max(index_dates),
