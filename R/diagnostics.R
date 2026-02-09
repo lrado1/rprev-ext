@@ -38,12 +38,37 @@ test_dispersion <- function(inc, N_sim = 1e5) {
 #' @family prevalence functions
 test_prevalence_fit <- function(object) {
     # Needed for CRAN
-    prev_registry <- NULL
-    alive_at_index <- NULL
     incident_date <- NULL
     sim <- NULL
 
-    object$simulated[, prev_registry := as.numeric(incident_date >= object$registry_start & alive_at_index)]
-    predicted <- round(mean(object$simulated[, sum(prev_registry), by=sim][[2]]))
-    poisson.test(c(object$counted, predicted))$p.value
+    sim_dt <- object$simulated
+    idx_dates <- object$index_dates
+    if (is.null(idx_dates) || length(idx_dates) == 0) {
+        stop("Error: prevalence object must contain non-empty 'index_dates'.")
+    }
+    if (is.null(sim_dt) || is.null(object$counted)) {
+        return(NA_real_)
+    }
+    if (is.null(names(object$counted)) || any(names(object$counted) == "")) {
+        stop("Error: prevalence object 'counted' must be a named vector keyed by 'index_dates'.")
+    }
+    missing_idx <- setdiff(as.character(idx_dates), names(object$counted))
+    if (length(missing_idx) > 0) {
+        stop("Error: prevalence object 'counted' is missing index date(s): ",
+             paste(missing_idx, collapse=", "), ".")
+    }
+
+    # Per-index p-value(s), for both single- and multi-index objects
+    pvals <- vapply(seq_along(idx_dates), function(k) {
+        alive_col <- sprintf("alive_k%03d", k)
+        if (!alive_col %in% names(sim_dt)) {
+            stop("Error: simulated prevalence data must contain column '", alive_col, "'.")
+        }
+        contribs <- sim_dt[, sum((incident_date >= object$registry_start) & (get(alive_col) == 1)), by=sim][[2]]
+        predicted <- round(mean(contribs))
+        counted_k <- object$counted[[as.character(idx_dates[k])]]
+        poisson.test(c(counted_k, predicted))$p.value
+    }, numeric(1))
+    names(pvals) <- as.character(idx_dates)
+    if (length(pvals) == 1) unname(pvals) else pvals
 }

@@ -1,9 +1,13 @@
 new_point_estimate <- function(year, sim_results, index, registry_data, prev_formula, registry_start_date, status_col,
                                population_size=NULL, proportion=1e5,
-                               level=0.95, precision=2) {
+                               level=0.95, precision=2,
+                               col_name) {
     if (year <= 0) {
         warning("Cannot estimate prevalence for a non-positive value of num_year_to_estimate.")
         return(list(absolute.prevalence=0))
+    }
+    if (missing(col_name) || is.null(col_name) || !nzchar(col_name)) {
+        stop("Error: 'col_name' must be provided as a non-empty prevalence contribution column name.")
     }
 
     # CRAN check
@@ -21,8 +25,6 @@ new_point_estimate <- function(year, sim_results, index, registry_data, prev_for
         # See if appending prevalence to simulation data or it's entirely counted
         if (initial_date < registry_start_date) {
             stopifnot(!is.null(sim_results))
-
-            col_name <- paste0("prev_", year, "yr")
             sim_contributions <- sim_results[incident_date < registry_start_date][, sum(get(col_name)), by=sim][[2]]  # Return results column
             the_estimate <- count_prev + mean(sim_contributions)
 
@@ -36,7 +38,6 @@ new_point_estimate <- function(year, sim_results, index, registry_data, prev_for
         }
     } else {
         # If don't have counted data then prevalence estimates are entirely simulated
-        col_name <- paste0("prev_", year, "yr")
         sim_contributions <- sim_results[, sum(get(col_name)), by=sim][[2]]  # Return results column
         the_estimate <- mean(sim_contributions)
 
@@ -95,4 +96,17 @@ calculate_se_sim <- function(population_size, sim_contribs) {
 calculate_se_counted <- function(population_size, counted_contribs) {
     raw_proportion <- counted_contribs / population_size
     sqrt((raw_proportion * (1 - raw_proportion)) / population_size)
+}
+
+new_point_estimate_multi <- function(year, sim_results, index_dates, registry_data, prev_formula, registry_start_date, status_col,
+                                     population_size=NULL, proportion=1e5,
+                                     level=0.95, precision=2) {
+    col_template <- paste0("prev_", year, "yr_k%03d")
+    estimates <- lapply(seq_along(index_dates), function(k) {
+        col_name <- sprintf(col_template, k)
+        est <- new_point_estimate(year, sim_results, index_dates[k], registry_data, prev_formula, registry_start_date, status_col,
+                                  population_size, proportion, level, precision, col_name=col_name)
+        data.frame(index_date=index_dates[k], as.data.frame(est, check.names=FALSE), check.names=FALSE)
+    })
+    do.call(rbind, estimates)
 }
