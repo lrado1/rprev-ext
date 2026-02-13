@@ -391,10 +391,10 @@ generate_synthetic_registry_yearly <- function(
   out
 }
 
-# Count prevalent cases at a selected index date:
+# Count prevalent cases at one or more selected index dates:
 # - truth-based count from F_true
-# - observed/censored count from F
-count_prevalence_at_index <- function(df, index_date, include_index_day = FALSE) {
+# - observed count from F
+count_prevalence_at_index <- function(df, index_date, population_size = NULL, include_index_day = FALSE) {
   required_cols <- c(
     "diagnosis_date_D",
     "last_followup_date_F",
@@ -405,36 +405,65 @@ count_prevalence_at_index <- function(df, index_date, include_index_day = FALSE)
     stop(sprintf("Missing required columns: %s", paste(missing_cols, collapse = ", ")))
   }
 
-  idx <- synth_as_date(index_date)
+  idx_vec <- synth_as_date(index_date)
+  if (length(idx_vec) == 0L) {
+    stop("index_date must contain at least one date.")
+  }
+  if (any(is.na(idx_vec))) {
+    stop("index_date contains invalid date value(s).")
+  }
+
+  pop_vec <- rep(NA_real_, length(idx_vec))
+  if (!is.null(population_size)) {
+    if (!is.numeric(population_size) || any(!is.finite(population_size))) {
+      stop("population_size must be a finite numeric value.")
+    }
+    if (any(population_size <= 0)) {
+      stop("population_size must be > 0.")
+    }
+
+    if (length(population_size) == 1L) {
+      pop_vec <- rep(as.numeric(population_size), length(idx_vec))
+    } else if (length(population_size) == length(idx_vec)) {
+      pop_vec <- as.numeric(population_size)
+    } else {
+      stop("population_size must be length 1 or the same length as index_date.")
+    }
+  }
+
   cmp <- if (isTRUE(include_index_day)) {
     function(x, y) x >= y
   } else {
     function(x, y) x > y
   }
 
-  diagnosed <- df$diagnosis_date_D <= idx
-  n_diagnosed <- sum(diagnosed)
+  summarize_one_index <- function(idx, pop) {
+    diagnosed <- df$diagnosis_date_D <= idx
+    n_diagnosed <- sum(diagnosed)
 
-  prevalent_true <- diagnosed & cmp(df$true_event_date_F_true, idx)
-  prevalent_observed <- diagnosed & cmp(df$last_followup_date_F, idx)
+    prevalent_true <- diagnosed & cmp(df$true_event_date_F_true, idx)
+    prevalent_observed <- diagnosed & cmp(df$last_followup_date_F, idx)
 
-  n_true <- sum(prevalent_true)
-  n_observed <- sum(prevalent_observed)
+    n_true <- sum(prevalent_true)
+    n_observed <- sum(prevalent_observed)
 
-  prevalence_rate <- function(n, d) if (d > 0L) n / d else NA_real_
+    prev_rate <- if (is.na(pop)) {
+      rep(NA_real_, 2)
+    } else {
+      c(n_true / pop, n_observed / pop)
+    }
 
-  result <- data.frame(
-    index_date = rep(idx, 2),
-    data_source = c("truth_F_true", "observed_or_censored_F"),
-    prevalent_cases = c(n_true, n_observed),
-    diagnosed_cases = rep(n_diagnosed, 2),
-    prevalence_rate_among_diagnosed = c(
-      prevalence_rate(n_true, n_diagnosed),
-      prevalence_rate(n_observed, n_diagnosed)
+    data.frame(
+      index_date = rep(idx, 2),
+      followup_basis = c("true_F", "observed_F"),
+      prevalent_cases = c(n_true, n_observed),
+      diagnosed_cases = rep(n_diagnosed, 2),
+      prevalence_rate = prev_rate
     )
-  )
+  }
 
-  result <- result[order(-result$prevalent_cases, result$data_source), ]
+  result_list <- Map(summarize_one_index, idx_vec, pop_vec)
+  result <- do.call(rbind, result_list)
   rownames(result) <- NULL
   result
 }
