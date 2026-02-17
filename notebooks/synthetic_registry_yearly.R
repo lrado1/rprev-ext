@@ -394,7 +394,15 @@ generate_synthetic_registry_yearly <- function(
 # Count prevalent cases at one or more selected index dates:
 # - truth-based count from F_true
 # - observed count from F
-count_prevalence_at_index <- function(df, index_date, population_size = NULL, include_index_day = FALSE) {
+# Optionally, prevalence can be restricted to rolling diagnosis horizons
+# (similar to num_years_to_estimate in rprev::prevalence()).
+count_prevalence_at_index <- function(
+  df,
+  index_date,
+  population_size = NULL,
+  include_index_day = FALSE,
+  num_years_to_estimate = NULL
+) {
   required_cols <- c(
     "diagnosis_date_D",
     "last_followup_date_F",
@@ -431,14 +439,39 @@ count_prevalence_at_index <- function(df, index_date, population_size = NULL, in
     }
   }
 
+  horizon_vec <- NULL
+  if (!is.null(num_years_to_estimate)) {
+    if (!is.numeric(num_years_to_estimate) || any(!is.finite(num_years_to_estimate))) {
+      stop("num_years_to_estimate must be finite numeric value(s).")
+    }
+    if (any(num_years_to_estimate <= 0)) {
+      stop("num_years_to_estimate must be > 0.")
+    }
+    if (any(abs(num_years_to_estimate - round(num_years_to_estimate)) > sqrt(.Machine$double.eps))) {
+      stop("num_years_to_estimate must contain whole years (integers).")
+    }
+    horizon_vec <- sort(unique(as.integer(round(num_years_to_estimate))))
+  }
+
   cmp <- if (isTRUE(include_index_day)) {
     function(x, y) x >= y
   } else {
     function(x, y) x > y
   }
 
-  summarize_one_index <- function(idx, pop) {
-    diagnosed <- df$diagnosis_date_D <= idx
+  subtract_years <- function(date_value, years_back) {
+    lt <- as.POSIXlt(date_value)
+    lt$year <- lt$year - years_back
+    as.Date(lt)
+  }
+
+  summarize_one_index <- function(idx, pop, horizon_years = NULL) {
+    if (is.null(horizon_years)) {
+      diagnosed <- df$diagnosis_date_D <= idx
+    } else {
+      start_date <- subtract_years(idx, horizon_years)
+      diagnosed <- (df$diagnosis_date_D > start_date) & (df$diagnosis_date_D <= idx)
+    }
     n_diagnosed <- sum(diagnosed)
 
     prevalent_true <- diagnosed & cmp(df$true_event_date_F_true, idx)
@@ -453,17 +486,55 @@ count_prevalence_at_index <- function(df, index_date, population_size = NULL, in
       c(n_true / pop, n_observed / pop)
     }
 
-    data.frame(
+    out <- data.frame(
       index_date = rep(idx, 2),
       followup_basis = c("true_F", "observed_F"),
       prevalent_cases = c(n_true, n_observed),
       diagnosed_cases = rep(n_diagnosed, 2),
       prevalence_rate = prev_rate
     )
+
+    if (!is.null(horizon_years)) {
+      out$time_horizon_years <- rep(horizon_years, 2)
+      out <- out[, c(
+        "index_date",
+        "time_horizon_years",
+        "followup_basis",
+        "prevalent_cases",
+        "diagnosed_cases",
+        "prevalence_rate"
+      )]
+    }
+
+    out
   }
 
-  result_list <- Map(summarize_one_index, idx_vec, pop_vec)
+  if (is.null(horizon_vec)) {
+    result_list <- Map(summarize_one_index, idx_vec, pop_vec)
+  } else {
+    result_list <- unlist(
+      Map(
+        function(idx, pop) {
+          lapply(horizon_vec, function(h) summarize_one_index(idx, pop, horizon_years = h))
+        },
+        idx_vec,
+        pop_vec
+      ),
+      recursive = FALSE
+    )
+  }
   result <- do.call(rbind, result_list)
   rownames(result) <- NULL
+  class(result) <- c("prevalence_summary_tbl", "data.frame")
   result
+}
+
+# Print prevalence summary in notebook-friendly table format.
+print.prevalence_summary_tbl <- function(x, digits = 4, ...) {
+  if (requireNamespace("knitr", quietly = TRUE)) {
+    print(knitr::kable(as.data.frame(x), digits = digits))
+  } else {
+    print.data.frame(as.data.frame(x), row.names = FALSE)
+  }
+  invisible(x)
 }
