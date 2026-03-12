@@ -22,7 +22,7 @@ validate_incidence_model <- function(object, data, timeframe=3652) {
     if (is.null(object$call)) {
         stop("Error: object does not have a call attribute.")
     }
-    if (is.null(class(object)) | class(object) == 'list') {
+    if (is.null(class(object)) || identical(class(object), "list")) {
         stop("Error: object does not have a unique class")
     }
 
@@ -40,7 +40,7 @@ validate_incidence_model <- function(object, data, timeframe=3652) {
     # Draw an incident population and test its output
     tryCatch({
         inc_pop <- draw_incident_population(object, data, timeframe, covars=NULL)
-        if (!class(inc_pop) %in% c("data.frame", "data.table")) {
+        if (!inherits(inc_pop, "data.frame")) {
             message("Error: Output class of draw_incident_population is not data.frame or data.table")
         }
         if (nrow(inc_pop) == 0) {
@@ -91,7 +91,7 @@ validate_survival_model <- function(object, data, timeframe=3652, sample_size=10
     if (is.null(object$call)) {
         stop("Error: object does not have a call attribute.")
     }
-    if (is.null(class(object)) | class(object) == 'list') {
+    if (is.null(class(object)) || identical(class(object), "list")) {
         stop("Error: object does not have a unique class")
     }
 
@@ -113,7 +113,7 @@ validate_survival_model <- function(object, data, timeframe=3652, sample_size=10
             if (typeof(covars) != 'character') {
                 stop("Error: extract_covars is returning a non-character vector: ", covars)
             }
-            if (!covars %in% colnames(data)) {
+            if (!all(covars %in% colnames(data))) {
                 stop("Error: cannot find results of extract_covars (", covars, ") as columns
                      in registry data.")
             }
