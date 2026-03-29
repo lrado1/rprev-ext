@@ -177,7 +177,8 @@ synth_sample_covariates <- function(
   beta_b_x1 = c(5.0, 2.0),
   x2_range = c(20, 85),
   x3_mu = c(0.0, 0.6, 0.03),
-  x3_sd = 1.0
+  x3_sd = 1.0,
+  p_hidden = 0.0
 ) {
   if (n < 0L) stop("n must be >= 0.")
   if (p_x1 <= 0 || p_x1 >= 1) stop("p_x1 must be in (0,1).")
@@ -185,8 +186,11 @@ synth_sample_covariates <- function(
     stop("beta_a_x1 and beta_b_x1 must have length 2 (for x1=0,1).")
   }
   if (x2_range[1] >= x2_range[2]) stop("x2_range must satisfy min < max.")
-  if (length(x3_mu) != 3) stop("x3_mu must have length 3: (eta0, eta1, eta2).")
+  if (!(length(x3_mu) %in% c(3L, 4L))) {
+    stop("x3_mu must have length 3 (eta0, eta1, eta2) or 4 (eta0, eta1, eta2, eta_hidden).")
+  }
   if (x3_sd <= 0) stop("x3_sd must be > 0.")
+  if (p_hidden < 0 || p_hidden > 1) stop("p_hidden must be in [0,1].")
 
   x1 <- rbinom(n, size = 1, prob = p_x1)
   u <- numeric(n)
@@ -197,7 +201,12 @@ synth_sample_covariates <- function(
   if (length(idx1) > 0L) u[idx1] <- rbeta(length(idx1), beta_a_x1[2], beta_b_x1[2])
 
   x2 <- x2_range[1] + (x2_range[2] - x2_range[1]) * u
-  mean_x3 <- x3_mu[1] + x3_mu[2] * x1 + x3_mu[3] * x2
+  if (length(x3_mu) == 3L) {
+    mean_x3 <- x3_mu[1] + x3_mu[2] * x1 + x3_mu[3] * x2
+  } else {
+    z_hidden <- rbinom(n, size = 1, prob = p_hidden)
+    mean_x3 <- x3_mu[1] + x3_mu[2] * x1 + x3_mu[3] * x2 + x3_mu[4] * z_hidden
+  }
   x3 <- rnorm(n, mean = mean_x3, sd = x3_sd)
 
   data.frame(
@@ -311,6 +320,7 @@ generate_synthetic_registry_yearly <- function(
   x2_range = c(20, 85),
   x3_mu = c(0.0, 0.6, 0.03),
   x3_sd = 1.0,
+  p_hidden = 0.0,
   gg_lam = 1800,
   gg_k = 1.2,
   gg_b = c(-0.5, 0.015, 0.6),
@@ -349,7 +359,8 @@ generate_synthetic_registry_yearly <- function(
     beta_b_x1 = beta_b_x1,
     x2_range = x2_range,
     x3_mu = x3_mu,
-    x3_sd = x3_sd
+    x3_sd = x3_sd,
+    p_hidden = p_hidden
   )
 
   latent <- synth_sample_latent_event_time(
