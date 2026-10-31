@@ -1,15 +1,17 @@
 Package: rprev
 Type: Package
 Title: Estimating Disease Prevalence from Registry Data
-Version: 1.0.5
-Date: 2021-04-30
+Version: 1.1.0
+Date: 2026-11-01
 Authors@R: c(
-        person("Stuart", "Lacy", email="stuart.lacy@york.ac.uk", role=c('cre', 'aut')),
-        person("Simon", "Crouch", email="simon.crouch@york.ac.uk", role='aut'),
-        person("Stephanie", "Lax", email="stephanie.lax@york.ac.uk", role='aut')
+        person("Laszlo", "Rado", email = "lazlorado@gmail.com", role = c("aut", "cre")),
+        person("Stuart", "Lacy", email = "stuart.lacy@york.ac.uk", role = "aut"),
+        person("Simon", "Crouch", email = "simon.crouch@york.ac.uk", role = "aut"),
+        person("Stephanie", "Lax", email = "stephanie.lax@york.ac.uk", role = "aut")
         )
-Description: Estimates disease prevalence for a given index date using existing
-    registry data extended with Monte Carlo simulations following the method of Crouch et al (2014) <doi: 10.1016/j.canep.2014.02.005>.
+Description: Estimates disease prevalence for one or more index dates using
+    existing registry data extended with Monte Carlo simulations following the
+    method of Crouch et al. (2014) <doi:10.1016/j.canep.2014.02.005>.
 LazyData: true
 License: GPL-2
 Depends:
@@ -32,5 +34,6 @@ Suggests:
     rms,
     testthat,
     covr
-URL: https://github.com/stulacy/rprev-dev
+URL: https://github.com/lrado1/rprev-ext
+BugReports: https://github.com/lrado1/rprev-ext/issues
 VignetteBuilder: knitr
