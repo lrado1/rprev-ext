@@ -18,8 +18,8 @@ fixed_cure(
 \code{\link{prevalence}} with the \code{surv_formula} argument.
 \strong{Must be in days}.}
 
-\item{data}{A data frame with the corresponding column names provided in
-\code{form}.}
+\item{data}{A data frame containing the columns referenced by the incidence
+and survival models and by the column-name arguments.}
 
 \item{cure_time}{Time-limit at which a patient is considered cured. Note that if this is 0 or negative then
 survival will be based purely off the population rates (anything passed into \code{formula} and \code{data} will
@@ -38,7 +38,8 @@ age, as descripted in \code{Details} below. These \strong{must} be the names of 
 \code{daily_survival}. If not provided then defaults to the fields that are present in both \code{data} and
 \code{daily_survival}.}
 
-\item{dist}{The distribution used by the default parametric survival model.}
+\item{dist}{The distribution used by the default parametric survival model:
+\code{"exponential"}, \code{"weibull"}, or \code{"lognormal"}.}
 }
 \value{
 An object of class \code{fixedcure} that can be passed

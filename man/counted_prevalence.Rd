@@ -9,11 +9,15 @@ counted_prevalence(formula, index, data, start_date, status_col)
 \arguments{
 \item{formula}{A formula of the form <event date column> ~ <entry date column>.}
 
-\item{index}{The date at which to estimate point prevalence as a string in the format
-YYYY-MM-DD.}
+\item{index}{A single date or vector of dates at which to estimate point
+prevalence. Dates may be supplied as character values in \code{YYYYMMDD} or
+\code{YYYY-MM-DD} format, or as an R \code{Date} vector created, for
+example, with \code{as.Date(c("2011-01-01", "2012-01-01"))}. Dates are
+deduplicated and sorted chronologically before estimation; any unparseable
+value produces an error.}
 
-\item{data}{A data frame with the corresponding column names provided in
-\code{form}.}
+\item{data}{A data frame containing the columns referenced by the incidence
+and survival models and by the column-name arguments.}
 
 \item{start_date}{The initial date to start counting prevalence from as a \code{Date} object.
 Typically the index date - (Nyears * 365.25). Allows for non-whole year prevalence estimations.}

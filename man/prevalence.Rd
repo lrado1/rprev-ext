@@ -34,15 +34,15 @@ example, with \code{as.Date(c("2011-01-01", "2012-01-01"))}. Dates are
 deduplicated and sorted chronologically before estimation; any unparseable
 value produces an error.}
 
-\item{data}{A data frame containing the columns referenced by the incidence
-and survival models and by the column-name arguments.}
-
 \item{num_years_to_estimate}{Number of years preceding each index date during
 which incident cases are included in the prevalence estimate. For example,
 a value of 5 includes cases incident during the five years preceding each
 index date. Multiple estimation periods can be supplied in a vector and are
 evaluated for every normalized index date. The part of an estimation period
 before the registry start is supplied by simulation.}
+
+\item{data}{A data frame containing the columns referenced by the incidence
+and survival models and by the column-name arguments.}
 
 \item{inc_formula}{A formula specifying the columns used in the incidence process.
     The LHS should be the name of the column holding the incident dates,
@@ -223,7 +223,7 @@ Crouch, Simon, et al. "Determining disease prevalence from
   38.2 (2014): 193-199. \doi{10.1016/j.canep.2014.02.005}.
 }
 \seealso{
-Other prevalence functions: 
-\code{\link{test_prevalence_fit}()}
+Other prevalence functions:
+\code{\link[=test_prevalence_fit]{test_prevalence_fit()}}
 }
 \concept{prevalence functions}

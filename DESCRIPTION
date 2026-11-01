@@ -7,11 +7,13 @@ Authors@R: c(
         person("Laszlo", "Rado", email = "lazlorado@gmail.com", role = c("aut", "cre")),
         person("Stuart", "Lacy", email = "stuart.lacy@york.ac.uk", role = "aut"),
         person("Simon", "Crouch", email = "simon.crouch@york.ac.uk", role = "aut"),
-        person("Stephanie", "Lax", email = "stephanie.lax@york.ac.uk", role = "aut")
+        person("Stephanie", "Lax", email = "stephanie.lax@york.ac.uk", role = "aut"),
+        person("Tamás", "Ferenci", role = "ths")
         )
 Description: Estimates disease prevalence for one or more index dates using
     existing registry data extended with Monte Carlo simulations following the
     method of Crouch et al. (2014) <doi:10.1016/j.canep.2014.02.005>.
+Encoding: UTF-8
 LazyData: true
 License: GPL-2
 Depends:
@@ -24,7 +26,6 @@ Imports:
     lubridate,
     magrittr,
     tidyr
-RoxygenNote: 7.1.1
 Suggests:
     flexsurv,
     flexsurvcure,
@@ -36,3 +37,4 @@ Suggests:
 URL: https://github.com/lrado1/rprev-ext
 BugReports: https://github.com/lrado1/rprev-ext/issues
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.1

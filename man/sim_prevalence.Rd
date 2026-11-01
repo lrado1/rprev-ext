@@ -6,7 +6,7 @@
 \usage{
 sim_prevalence(
   data,
-  index,
+  index_dates,
   starting_date,
   inc_model,
   surv_model,
@@ -16,14 +16,13 @@ sim_prevalence(
 )
 }
 \arguments{
-\item{data}{A data frame with the corresponding column names provided in
-\code{form}.}
+\item{data}{A data frame containing the columns referenced by the incidence
+and survival models and by the column-name arguments.}
 
-\item{index}{The date at which to estimate point prevalence as a string in the format
-YYYY-MM-DD.}
+\item{index_dates}{The date(s) at which to estimate point prevalence as \code{Date} values.}
 
 \item{starting_date}{The initial date to start simulating prevalence from as a \code{Date} object.
-Typically the index date - (Nyears * 365.25). Allows for non-whole year prevalence estimations.}
+Typically the earliest index date - (Nyears * 365.25). Allows for non-whole year prevalence estimations.}
 
 \item{inc_model}{An object that has a \code{draw_incident_population}
 method. See the vignette for further guidance.}

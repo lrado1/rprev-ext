@@ -32,7 +32,7 @@ test_prevalence_fit(obj)
 }
 }
 \seealso{
-Other prevalence functions: 
-\code{\link{prevalence}()}
+Other prevalence functions:
+\code{\link[=prevalence]{prevalence()}}
 }
 \concept{prevalence functions}

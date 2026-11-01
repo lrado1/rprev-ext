@@ -2,10 +2,10 @@
 #' Monte Carlo simulations.
 #'
 #' The rprev package uses available registry data to estimate point prevalence
-#' at a specified index date. This is done by fitting two models to the registry
+#' at one or more specified index dates. This is done by fitting two models to the registry
 #' data: an incidence and a survival model. The first model is used to generate
 #' an incident population with the survival model determining whether an individual
-#' is alive at the index date and therefore contributing to prevalence.
+#' is alive at each index date and therefore contributing to prevalence.
 #'
 #' Prevalence is estimated using incident cases from a set number of years,
 #' where the larger this values the more accurate the prevalence estimates are.
@@ -16,12 +16,10 @@
 #' The primary function in this package is thereby \code{\link{prevalence}},
 #' which performs the combination of counted incidence from the registry data,
 #' and the simulated cases, along with the calculation of their survival
-#' probabilities at the index date.
+#' probabilities at the requested index dates.
 #'
 #' \code{\link{test_homogeneity}} provides a summary of the incident cases in the
 #' registry data set, allowing for inspection of whether the default
 #' homogeneous Poisson process assumption holds for the disease in question.
 #'
-#' @docType package
-#' @name rprev
-NULL
+"_PACKAGE"
