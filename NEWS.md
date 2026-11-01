@@ -1,3 +1,36 @@
+# rprev 1.1.0
+
+## New features
+
+  - `prevalence()` now accepts one or more index dates. Input dates are parsed,
+    deduplicated, and sorted before estimation.
+  - Each bootstrap iteration simulates one incident population for all requested
+    index dates. Individual-level uniform thresholds are shared across dates to
+    produce temporally consistent survival states.
+  - Estimates are returned by estimation period as data frames with one row per
+    index date. Counted prevalence, simulated contributions, confidence
+    intervals, and goodness-of-fit values are calculated for each date.
+  - `print()`, `summary()`, and `survfit()` support prevalence objects containing
+    multiple index dates.
+
+## Compatibility and fixes
+
+  - Single-index estimates retain the previous seeded simulation behaviour.
+  - Intercept-only survival models now retain the required prediction dimensions
+    with current versions of `data.table`.
+  - Survival-curve prediction and confidence-ribbon construction are stable with
+    current versions of R, `dplyr`, and related dependencies.
+  - Defunct scoped `dplyr` verbs were replaced with their current equivalents.
+  - Unit tests now cover single- and multi-index estimation, input normalization,
+    counted and simulated branches, temporal consistency, S3 methods, model
+    reuse, age limits, and seeded reproducibility.
+
+## Documentation and maintenance
+
+  - Function documentation and examples now describe multi-index inputs,
+    per-date outputs, estimation periods, and goodness-of-fit values.
+  - Package maintenance has transferred to Laszlo Rado.
+
 # rprev 1.0.4
 
 Made changes to account for the upcoming stringsAsFactors = FALSE default argument to data.frame() in R 4.0 so that the package is backwards compatible.
