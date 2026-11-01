@@ -1,9 +1,14 @@
 ^CRAN-RELEASE$
+^AGENTS\.md$
+^CODING_NOTES\.md$
+^THESIS\.md$
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^cran-comments\.md$
 ^README-.*\.png$
 ^TODO$
+^TODO\.md$
+^rprev_ref_runtime_pilot\.csv$
 vignettes/diagram.pdf
 R/old_diagnostics.R
 scripts/
