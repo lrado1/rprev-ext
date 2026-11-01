@@ -39,7 +39,10 @@ survfit.prevalence <- function(formula, newdata=NULL, ...) {
     }
 
     times <- seq(formula$max_event_time)
-    ndata <- newdata[rep(seq(nrow(newdata)), length(times)), ]
+    if (nrow(newdata) == 0 && ncol(newdata) == 0) {
+        newdata <- data.frame(row.names=1L)
+    }
+    ndata <- newdata[rep(seq_len(nrow(newdata)), length(times)), , drop=FALSE]
 
     survprobs <- lapply(formula$surv_models, predict_survival_probability, ndata, times)
     survprobs_mat <- t(simplify2array(survprobs))
@@ -156,8 +159,8 @@ plot.survfit.prev <- function(x, ...) {
     time <- survprob <- mn <- mx <- NULL
     smooth <- gathered %>%
         dplyr::group_by(time) %>%
-        dplyr::summarise(mx=quantile(survprob, 0.975),
-                         mn=quantile(survprob, 0.025),
+        dplyr::summarise(mx=unname(quantile(survprob, 0.975)),
+                         mn=unname(quantile(survprob, 0.025)),
                          .groups='drop') %>%
         dplyr::mutate(time=as.numeric(time)) %>%
         dplyr::arrange(time)
