@@ -7,6 +7,7 @@
 vignettes/diagram.pdf
 R/old_diagnostics.R
 scripts/
+^notebooks(/|$)
 newversion_test/
 ^\.travis\.yml$
 ^codecov\.yml$
