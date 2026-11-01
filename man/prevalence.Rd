@@ -27,19 +27,22 @@ prevalence(
 )
 }
 \arguments{
-\item{index}{A date or vector of dates at which to estimate point prevalence.
-Character values may use \code{YYYYMMDD} or \code{YYYY-MM-DD} format;
-\code{Date} values are also accepted. Dates are deduplicated and sorted
-chronologically before estimation; any unparseable value produces an error.}
-
-\item{num_years_to_estimate}{Number of years of data to consider when
-estimating point prevalence. Multiple horizons can be supplied in a vector
-and are evaluated for every normalized index date. Incident cases before
-the registry start are simulated when an estimation window extends beyond
-the observed registry period.}
+\item{index}{A single date or vector of dates at which to estimate point
+prevalence. Dates may be supplied as character values in \code{YYYYMMDD} or
+\code{YYYY-MM-DD} format, or as an R \code{Date} vector created, for
+example, with \code{as.Date(c("2011-01-01", "2012-01-01"))}. Dates are
+deduplicated and sorted chronologically before estimation; any unparseable
+value produces an error.}
 
 \item{data}{A data frame containing the columns referenced by the incidence
 and survival models and by the column-name arguments.}
+
+\item{num_years_to_estimate}{Number of years of data to consider when
+estimating point prevalence, counted backwards from each index date.
+Multiple estimation periods can be supplied in a vector and are evaluated
+for every normalized index date. Incident cases before the registry start
+are simulated when an estimation period extends beyond the observed
+registry period.}
 
 \item{inc_formula}{A formula specifying the columns used in the incidence process.
     The LHS should be the name of the column holding the incident dates,
@@ -53,8 +56,8 @@ and survival models and by the column-name arguments.}
 \item{inc_model}{An object that has a \code{draw_incident_population}
 method. See the vignette for further guidance.}
 
-\item{surv_formula}{A formula specifying the survival model, with a
-\code{Surv} object on the left-hand side.}
+\item{surv_formula}{A survival-model formula accepted by
+\code{flexsurvreg}, specified as \code{Surv(time, status) ~ predictors}.}
 
 \item{surv_model}{An object that has a \code{predict_survival_probability}
 method. See the vignette for further guidance.}
@@ -96,29 +99,31 @@ risk.}
 }
 \value{
 A \code{prevalence} object containing the following attributes:
-  \item{estimates}{A named list with one element per estimation horizon
-    (for example, \code{y5}). Each element is a data frame with one row per
-    normalized index date and columns for \code{index_date}, absolute
-    prevalence, and, when \code{population_size} is supplied, the prevalence
-    rate and confidence limits.}
+  \item{estimates}{A named list with one element for each estimation period
+    specified in \code{num_years_to_estimate} (for example, \code{y5}). Each
+    element is a data frame with one row per normalized index date and columns
+    for \code{index_date}, absolute prevalence, and, when
+    \code{population_size} is supplied, the prevalence rate and confidence
+    limits.}
   \item{simulated}{A \code{data.table} of simulated incident cases from all
     bootstrap iterations, or \code{NULL} when simulation is not required.
     The \code{sim} column identifies the bootstrap iteration.
     \code{alive_k###} records survival at the corresponding position in
     \code{index_dates}, and \code{prev_<years>yr_k###} records contribution
-    to the corresponding estimation horizon and index date.}
+    to the corresponding estimation period and index date.}
   \item{counted}{A numeric vector of registry-counted prevalent cases named
     by index date, or \code{NULL} when registry prevalence cannot be counted.}
-  \item{full_surv_model}{The survival model used with the complete registry
-    data, or \code{NULL} when no survival model is required or supplied.}
-  \item{full_inc_model}{The incidence model used with the complete registry
-    data when simulation is performed, otherwise \code{NULL}.}
-  \item{surv_models}{A list of survival models fitted to the bootstrap
-    samples when simulation is performed, otherwise \code{NULL}.}
-  \item{inc_models}{A list of incidence models fitted to the bootstrap
-    samples when simulation is performed, otherwise \code{NULL}.}
+  \item{full_surv_model}{The survival model fitted to the complete registry
+    data, or the supplied custom survival model.}
+  \item{full_inc_model}{The incidence model fitted to the complete registry
+    data, or the supplied custom incidence model, when simulation is
+    performed; otherwise \code{NULL}.}
+  \item{surv_models}{A list containing one survival model refitted to each
+    bootstrap sample when simulation is performed, otherwise \code{NULL}.}
+  \item{inc_models}{A list containing one incidence model refitted to each
+    bootstrap sample when simulation is performed, otherwise \code{NULL}.}
   \item{index_dates}{The sorted, unique index dates as a \code{Date} vector.}
-  \item{est_years}{The requested prevalence estimation horizons in years.}
+  \item{est_years}{The requested prevalence estimation periods in years.}
   \item{counted_incidence_rate}{The overall incidence rate in the registry data set.}
   \item{registry_start}{The date the registry was identified at starting at.}
   \item{proportion}{The denominator to use for estimating prevalence rates.}
@@ -127,10 +132,13 @@ A \code{prevalence} object containing the following attributes:
   \item{means}{Covariate means and modes used by \code{survfit}, or
     \code{NULL} when simulation is not performed.}
   \item{max_event_time}{When incident and death columns are available, the
-    maximum observed time to event in days.}
-  \item{pval}{When simulation is performed, the prevalence goodness-of-fit
-    p-value for one index date or a named vector of p-values for multiple
-    index dates.}
+    maximum observed time to event in days, used by \code{survfit} to define
+    the time axis for predicted survival curves.}
+  \item{pval}{A goodness-of-fit measure used to assess whether simulated
+    prevalence is consistent with registry-counted prevalence. When
+    simulation is performed, it contains the p-value from a Poisson test
+    comparing the two over the registry-covered period. A single value is
+    returned for one index date and a named vector for multiple index dates.}
 }
 \description{
 Point prevalence at one or more index dates is estimated using contributions
@@ -139,19 +147,25 @@ survival processes, following Crouch et al. (2014) (see References).
 }
 \details{
 The \code{index} argument accepts one date or a vector of dates. Dates are
-parsed, deduplicated, and sorted chronologically. Prevalence is estimated for
-every combination of index date and value in
-\code{num_years_to_estimate}. For each combination, observed registry cases
-are counted where available and incident cases before the registry start are
+parsed, deduplicated, and sorted chronologically. The
+\code{num_years_to_estimate} argument defines the estimation period: the
+number of years counted backwards from each index date when estimating
+prevalence. For example, a value of 5 uses cases incident during the five
+years preceding each index date. Prevalence is estimated for every
+combination of index date and estimation period. Observed registry cases are
+counted where available, and incident cases before the registry start are
 supplied by Monte Carlo simulation.
 
 When simulation is required, each bootstrap iteration fits the incidence and
-survival models once and draws one incident population covering all requested
-dates. Each simulated individual receives one shared
-\eqn{xi_i \sim U(0, 1)} threshold, which is compared with that individual's
-survival probability at every index date. This produces temporally consistent
-survival indicators across the ordered dates instead of independent draws at
-each date.
+survival models once and draws one incident population spanning from the
+earliest index date minus the longest period in
+\code{num_years_to_estimate} through the latest index date. Each simulated
+individual is assigned one random threshold, \eqn{xi_i \sim U(0, 1)}, drawn
+uniformly between 0 and 1 and retained across all index dates. The individual
+is classified as alive at an index date when \eqn{xi_i} is no greater than
+their predicted survival probability at that date. This shared-threshold
+construction extends the single-index simulation of Crouch et al. (2014) and
+produces temporally consistent survival indicators across the ordered dates.
 
 Prevalence arises from two stochastic processes: incidence and survival.
 This is reflected in the function arguments by multiple options for
