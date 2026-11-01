@@ -1,25 +1,53 @@
-## Resubmission 2
+## Package maintenance
 
-Updated URL with https that had missed out in previous submission.
+This is the first release maintained by Laszlo Rado <lazlorado@gmail.com>
+following the transfer of package maintenance from Stuart Lacy
+<stuart.lacy@york.ac.uk>. Stuart Lacy remains listed as an author.
 
-## Resubmission
+Stuart Lacy concluded his maintenance of the package, and Laszlo Rado
+volunteered to take over its continued development and CRAN maintenance.
+Stuart Lacy confirmed by email that he supports continued development of the
+fork and its submission to CRAN under the `rprev` package name. The original
+confirmation can be provided to CRAN on request.
 
-Updated URLs with https and corrected out-of-date links. 
-Added DOI to package description.
+The package was archived on CRAN on 2026-03-18 because calls to deprecated
+`dplyr` APIs had not been updated. Version 1.1.0 replaces those calls with
+their current equivalents and restores compatibility with current dependency
+versions.
 
 ## Release summary
 
-Explicitly declared `rmarkdown` dependency in SUGGESTS for building the vignette.
+Version 1.1.0 adds prevalence estimation for one or more index dates in a single
+call. Within each bootstrap iteration, all requested dates use the same
+simulated incident population and individual-level survival threshold, producing
+temporally consistent survival states. Single-index seeded simulation behaviour
+is retained.
+
+The release also updates per-date outputs, S3 methods, documentation, dependency
+compatibility, and unit test coverage.
 
 ## Test environments
 
-* local Manjaro Linux install, R 4.0.5
-* Win-builder r-devel
+* local Windows 11 x86_64 (build 26100), R 4.6.2 (2026-10-29 ucrt),
+  `R CMD check --as-cran --no-manual`
+* win-builder R-devel: pending
 
 ## R CMD check results
 
-There were no ERRORS or WARNINGS, and the only NOTE refers to possible mis-spelling of the words 'et' and 'al' in the DESCRIPTION.
+0 errors | 0 warnings | 1 note
+
+The NOTE identifies this as a new submission and reports that the previous CRAN
+release was archived. The archive reason and maintenance transfer are addressed
+above.
+
+The local check used `--no-manual` because the available TinyTeX 2022
+installation does not contain `makeindex` and cannot install 2026 TeX Live
+components across releases. PDF manual checking remains pending on win-builder
+R-devel.
+
+The complete `testthat` suite passes locally without failures or errors under
+R 4.6.2.
 
 ## Downstream dependencies
 
-No downstream dependencies.
+The current CRAN package index lists no reverse dependencies for rprev.
