@@ -476,18 +476,27 @@ sim_prevalence <- function(data, index_dates, starting_date,
         data.table::setDT(incident_population)
 
         incident_date <- as.Date(starting_date + incident_population[[1]])
-        covar_data <- incident_population[, -1, with=FALSE]
-        xi <- runif(nrow(incident_population))
+        covar_data <- as.data.frame(incident_population[, -1, with=FALSE])
+        if (ncol(covar_data) == 0) {
+            covar_data <- data.frame(row.names=seq_len(nrow(incident_population)))
+        }
+        xi <- if (length(index_dates) > 1) runif(nrow(incident_population)) else NULL
 
         for (k in seq_along(index_dates)) {
             time_to_index_k <- as.numeric(difftime(index_dates[k], incident_date, units='days'))
             mask <- time_to_index_k >= 0
-            surv_prob_k <- numeric(length(xi))
+            surv_prob_k <- numeric(nrow(incident_population))
             if (any(mask)) {
-                surv_prob_k[mask] <- predict_survival_probability(bs_surv, covar_data[mask], time_to_index_k[mask])
+                surv_prob_k[mask] <- predict_survival_probability(bs_surv,
+                                                                  covar_data[mask, , drop=FALSE],
+                                                                  time_to_index_k[mask])
             }
-            alive_k <- integer(length(xi))
-            alive_k[mask] <- as.integer(xi[mask] <= surv_prob_k[mask])
+            if (length(index_dates) == 1) {
+                alive_k <- rbinom(length(surv_prob_k), size=1, prob=surv_prob_k)
+            } else {
+                alive_k <- integer(length(xi))
+                alive_k[mask] <- as.integer(xi[mask] <= surv_prob_k[mask])
+            }
             col_k <- sprintf("alive_k%03d", k)
             incident_population[, (col_k) := alive_k]
 
