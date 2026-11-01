@@ -12,7 +12,8 @@ Authors@R: c(
         )
 Description: Estimates disease prevalence for one or more index dates using
     existing registry data extended with Monte Carlo simulations following the
-    method of Crouch et al. (2014) <doi:10.1016/j.canep.2014.02.005>.
+    method described in the referenced publication
+    <doi:10.1016/j.canep.2014.02.005>.
 Encoding: UTF-8
 LazyData: true
 License: GPL-2

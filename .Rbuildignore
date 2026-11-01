@@ -14,5 +14,6 @@ R/old_diagnostics.R
 scripts/
 ^notebooks(/|$)
 newversion_test/
+^\.github(/|$)
 ^\.travis\.yml$
 ^codecov\.yml$
