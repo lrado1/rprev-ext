@@ -110,7 +110,7 @@ predict_survival_probability.fixedcure <- function(object, newdata, times) {
     . <- NULL
 
     # Calculate raw survival time
-    probs <- copy(newdata)
+    probs <- data.table::as.data.table(data.table::copy(newdata))
     probs[, c('id', 'time_to_index') := list(1:nrow(probs), times) ]
     probs[, cured := time_to_index > object$cure_time ]
     probs[, time_calc_survival := ifelse(cured, object$cure_time, time_to_index)]
@@ -163,9 +163,10 @@ extract_covars.fixedcure <- function(object) {
     unique(c(object$covars, object$pop_covars, 'age'))
 }
 
-print.fixedcure <- function(object, ...) {
-    to_print <- object[c('coefs', 'covars', 'call', 'dist', 'terms', 'pop_covars', 'cure_time')]
-    to_print$population_survival <- summary(object$pop_data)
+#' @export
+print.fixedcure <- function(x, ...) {
+    to_print <- x[c('coefs', 'covars', 'call', 'dist', 'terms', 'pop_covars', 'cure_time')]
+    to_print$population_survival <- summary(x$pop_data)
     print(to_print)
 
 }

@@ -69,3 +69,25 @@ test_that("validate_population_survival verifies all linkage covariate values in
                  "Error: not all values of sex are present in population survival.")
 
 })
+
+test_that("fixed cure prediction accepts data frames without modifying inputs", {
+    model <- fixed_cure(
+        Surv(time, status) ~ age + sex,
+        data = prevsim,
+        cure_time = 5 * 365.25,
+        dist = "weibull"
+    )
+    newdata <- data.frame(age = prevsim$age[1:2], sex = prevsim$sex[1:2])
+    newdata_original <- newdata
+    newdata_dt <- data.table::as.data.table(newdata)
+    newdata_dt_original <- data.table::copy(newdata_dt)
+    times <- c(100, 200)
+
+    data_frame_result <- predict_survival_probability(model, newdata, times)
+    data_table_result <- predict_survival_probability(model, newdata_dt, times)
+
+    expect_equal(data_frame_result, data_table_result)
+    expect_length(data_frame_result, length(times))
+    expect_equal(newdata, newdata_original)
+    expect_equal(newdata_dt, newdata_dt_original)
+})

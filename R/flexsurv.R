@@ -17,7 +17,7 @@ predict_survival_probability.flexsurvreg <- function(object, newdata=NULL,
 
     X <- form.model.matrix(object, as.data.frame(newdata))
 
-    fn <- summary.fns(x)
+    fn <- summary_fns(x)
     fn <- expand.summfn.args(fn)
     beta <- if (x$ncovs==0) 0 else x$res[x$covpars,"est"]
 
@@ -90,7 +90,7 @@ compress.model.matrices <- function(mml){
     X
 }
 
-summary.fns <- function(x){
+summary_fns <- function(x){
    function(t, ...) {
        1 - x$dfns$p(t,...)
    }
