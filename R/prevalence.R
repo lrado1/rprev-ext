@@ -1,25 +1,26 @@
 INCIDENCE_MARGIN <- 1.5
 MIN_INCIDENCE <- 10
 
-#' Estimate point prevalence at an index date.
+#' Estimate point prevalence at one or more index dates.
 #'
-#' Point prevalence at a specific index date is estimated using contributions to
-#' prevalence from both available registry data, and from Monte Carlo
-#' simulations of the incidence and survival process, as outlined by Crouch et
-#' al (2004) (see References).
+#' Point prevalence at one or more index dates is estimated using contributions
+#' from available registry data and Monte Carlo simulations of the incidence and
+#' survival processes, following Crouch et al. (2014) (see References).
 #'
-#' The most important parameter is \code{num_years_to_estimate}, which governs
-#' the number of previous years of data to use when estimating the prevalence at
-#' the index date. If this parameter is greater than the number of years of
-#' known incident cases available in the supplied registry data (specified with
-#' argument \code{num_registry_years}), then the remaining
-#' \code{num_years_to_estimate - num_registry_years} years of incident data will
-#' be simulated using Monte Carlo simulation.
+#' The \code{index} argument accepts one date or a vector of dates. Dates are
+#' parsed, deduplicated, and sorted chronologically. Prevalence is estimated for
+#' every combination of index date and value in
+#' \code{num_years_to_estimate}. For each combination, observed registry cases
+#' are counted where available and incident cases before the registry start are
+#' supplied by Monte Carlo simulation.
 #'
-#' The larger \code{num_years_to_estimate}, the more accurate the prevalence
-#' estimate will be, provided an adequate survival model can be fitted to the
-#' registry data. It is therefore important to provide as much clean registry
-#' data as possible.
+#' When simulation is required, each bootstrap iteration fits the incidence and
+#' survival models once and draws one incident population covering all requested
+#' dates. Each simulated individual receives one shared
+#' \eqn{xi_i \sim U(0, 1)} threshold, which is compared with that individual's
+#' survival probability at every index date. This produces temporally consistent
+#' survival indicators across the ordered dates instead of independent draws at
+#' each date.
 #'
 #' Prevalence arises from two stochastic processes: incidence and survival.
 #' This is reflected in the function arguments by multiple options for
@@ -39,15 +40,17 @@ MIN_INCIDENCE <- 10
 #' in \code{surv_formula} and distribution given in \code{dist}. See the vignette for guidance
 #' on providing a custom survival model.
 #'
-#' @param index The date at which to estimate point prevalence as a string in the format
-#' YYYY-MM-DD.
+#' @param index A date or vector of dates at which to estimate point prevalence.
+#'   Character values may use \code{YYYYMMDD} or \code{YYYY-MM-DD} format;
+#'   \code{Date} values are also accepted. Dates are deduplicated and sorted
+#'   chronologically before estimation; any unparseable value produces an error.
 #' @param num_years_to_estimate Number of years of data to consider when
-#'   estimating point prevalence; multiple values can be specified in a vector.
-#'   If any values are greater than the number of years of registry data
-#'   available before \code{index_date}, incident cases
-#'   for the difference will be simulated.
-#' @param data A data frame with the corresponding column names provided in
-#'   \code{form}.
+#'   estimating point prevalence. Multiple horizons can be supplied in a vector
+#'   and are evaluated for every normalized index date. Incident cases before
+#'   the registry start are simulated when an estimation window extends beyond
+#'   the observed registry period.
+#' @param data A data frame containing the columns referenced by the incidence
+#'   and survival models and by the column-name arguments.
 #' @param inc_formula A formula specifying the columns used in the incidence process.
 #'     The LHS should be the name of the column holding the incident dates,
 #'     with the RHS specifying any variables that should be stratified by, or 1 if no
@@ -59,9 +62,10 @@ MIN_INCIDENCE <- 10
 #'
 #' @param inc_model An object that has a \code{draw_incident_population}
 #'     method. See the vignette for further guidance.
-#' @param surv_formula A formula used to specify a survival model, where the
-#' LHS a Surv object, as used by \code{flexsurvreg}.
-#' @param dist The distribution used by the default parametric survival model.
+#' @param surv_formula A formula specifying the survival model, with a
+#'   \code{Surv} object on the left-hand side.
+#' @param dist The distribution used by the default parametric survival model:
+#'   \code{"exponential"}, \code{"weibull"}, or \code{"lognormal"}.
 #' @param surv_model An object that has a \code{predict_survival_probability}
 #'     method. See the vignette for further guidance.
 #' @param registry_start_date The starting date of the registry. If not supplied
@@ -87,49 +91,76 @@ MIN_INCIDENCE <- 10
 #' @param precision Integer representing the number of decimal places required.
 #'
 #' @return A \code{prevalence} object containing the following attributes:
-#'   \item{estimates}{Prevalence estimates at the specified years as both absolute and rates.}
-#'   \item{simulated}{A \code{data.table} containing simulated incident cases from each bootstrap iteration
-#'     Each row corresponds to a simulated incident case with their simulated attributes and survival status.
-#'     Binary flags are provided beginning \code{prev_}, which indicate whether that person contributed
-#'     to the prevalence for the specified time-period. The \code{prev_registry} flag indicates whether that
-#'     person was incident during the registry time-span and alive at the index. These cases are used to
-#'     assess the model fit, as the numbers can be simply compared to the known registry prevalence.}
-#'   \item{counted}{The number of incident cases present in the registry data set.}
-#'   \item{full_surv_model}{The survival model built on the complete registry data set.}
-#'   \item{full_inc_model}{The incidence model built on the complete registry data set.}
-#'   \item{surv_models}{A list of the survival models fitted to each bootstrap iteration.}
-#'   \item{inc_models}{A list of the incidence models fitted to each bootstrap iteration.}
-#'   \item{index_date}{The index date.}
-#'   \item{est_years}{The years at which prevalence is estimated at.}
+#'   \item{estimates}{A named list with one element per estimation horizon
+#'     (for example, \code{y5}). Each element is a data frame with one row per
+#'     normalized index date and columns for \code{index_date}, absolute
+#'     prevalence, and, when \code{population_size} is supplied, the prevalence
+#'     rate and confidence limits.}
+#'   \item{simulated}{A \code{data.table} of simulated incident cases from all
+#'     bootstrap iterations, or \code{NULL} when simulation is not required.
+#'     The \code{sim} column identifies the bootstrap iteration.
+#'     \code{alive_k###} records survival at the corresponding position in
+#'     \code{index_dates}, and \code{prev_<years>yr_k###} records contribution
+#'     to the corresponding estimation horizon and index date.}
+#'   \item{counted}{A numeric vector of registry-counted prevalent cases named
+#'     by index date, or \code{NULL} when registry prevalence cannot be counted.}
+#'   \item{full_surv_model}{The survival model used with the complete registry
+#'     data, or \code{NULL} when no survival model is required or supplied.}
+#'   \item{full_inc_model}{The incidence model used with the complete registry
+#'     data when simulation is performed, otherwise \code{NULL}.}
+#'   \item{surv_models}{A list of survival models fitted to the bootstrap
+#'     samples when simulation is performed, otherwise \code{NULL}.}
+#'   \item{inc_models}{A list of incidence models fitted to the bootstrap
+#'     samples when simulation is performed, otherwise \code{NULL}.}
+#'   \item{index_dates}{The sorted, unique index dates as a \code{Date} vector.}
+#'   \item{est_years}{The requested prevalence estimation horizons in years.}
 #'   \item{counted_incidence_rate}{The overall incidence rate in the registry data set.}
 #'   \item{registry_start}{The date the registry was identified at starting at.}
 #'   \item{proportion}{The denominator to use for estimating prevalence rates.}
 #'   \item{status_col}{The column in the registry data containing the survival status.}
 #'   \item{N_boot}{The number of bootstrap iterations that were run.}
-#'   \item{means}{Covariate means, used when plotting Kaplan-Meier estimators using \code{survfit}.}
-#'   \item{max_event_time}{The maximum time-to-event in the registry data. Again, used in
-#'     \code{survfit} to scale the time-axis.}
-#'   \item{pval}{The p-value resulting from a hypothesis test on the difference between the
-#'   simulated and counted prevalence on the time-span covered by the registry. Tests the
-#'   prevalence fit; if a significant result is found then further diagnostics are required.}
+#'   \item{means}{Covariate means and modes used by \code{survfit}, or
+#'     \code{NULL} when simulation is not performed.}
+#'   \item{max_event_time}{When incident and death columns are available, the
+#'     maximum observed time to event in days.}
+#'   \item{pval}{When simulation is performed, the prevalence goodness-of-fit
+#'     p-value for one index date or a named vector of p-values for multiple
+#'     index dates.}
 #'
 #' @references Crouch, Simon, et al. "Determining disease prevalence from
 #'   incidence and survival using simulation techniques." Cancer epidemiology
-#'   38.2 (2014): 193-199.
+#'   38.2 (2014): 193-199. \doi{10.1016/j.canep.2014.02.005}.
 #' @examples
 #' data(prevsim)
 #'
 #' \dontrun{
-#' data(prevsim)
+#' set.seed(123)
 #'
-#' prevalence(index='2013-01-30',
-#'            num_years_to_estimate=c(3, 5, 10, 20),
-#'            data=prevsim,
-#'            inc_formula = entrydate ~ sex,
-#'            surv_formula = Surv(time, status) ~ age + sex,
-#'            dist='weibull',
-#'            population_size = 1e6,
-#'            death_column = 'eventdate')
+#' single_index <- prevalence(
+#'     index = "2012-01-01",
+#'     num_years_to_estimate = c(5, 10),
+#'     data = prevsim,
+#'     inc_formula = entrydate ~ sex,
+#'     surv_formula = Surv(time, status) ~ age + sex,
+#'     dist = "weibull",
+#'     N_boot = 100,
+#'     population_size = 1e6,
+#'     death_column = "eventdate")
+#'
+#' # Input dates are deduplicated and sorted before estimation.
+#' multi_index <- prevalence(
+#'     index = c("2012-01-01", "2010-01-01", "2011-01-01", "2011-01-01"),
+#'     num_years_to_estimate = c(5, 10),
+#'     data = prevsim,
+#'     inc_formula = entrydate ~ sex,
+#'     surv_formula = Surv(time, status) ~ age + sex,
+#'     dist = "weibull",
+#'     N_boot = 100,
+#'     population_size = 1e6,
+#'     death_column = "eventdate")
+#'
+#' print(multi_index)
+#' summary(multi_index)
 #' }
 #'
 #' @family prevalence functions
