@@ -2,6 +2,10 @@ library(rprev)
 context('Prevalence')
 data(prevsim)
 
+absolute_estimates <- function(object) {
+    unname(unlist(lapply(object$estimates, function(estimate) estimate$absolute.prevalence)))
+}
+
 test_that("prevalence outputs the same values as before", {
     # This function tests that the estimates haven't changed, not that the estimates or code are correct.
     # It's useful when large changes have been added that could affect how the prevalence estimates are produced.
@@ -75,14 +79,14 @@ test_that("prevalence outputs the same values as before", {
 
 
     # Compare estimates
-    expect_equal(as.numeric(unlist(counted_nonstrat$estimates)), c(305, 435))
-    expect_equal(as.numeric(unlist(wei_nonstrat$estimates)), c(755.5))
-    expect_equal(as.numeric(unlist(wei_strat$estimates)), c(769.9))
-    expect_equal(as.numeric(unlist(wei_agesex$estimates)), c(768.2))
-    expect_equal(as.numeric(unlist(lnorm_age$estimates)), c(742.2))
-    expect_equal(as.numeric(unlist(lnorm_sex$estimates)), c(630.4))
-    expect_equal(as.numeric(unlist(exp_full$estimates)), c(566.85))
-    expect_equal(as.numeric(unlist(exp_sex$estimates)), c(566.87))
+    expect_equal(absolute_estimates(counted_nonstrat), c(305, 435))
+    expect_equal(absolute_estimates(wei_nonstrat), c(755.5))
+    expect_equal(absolute_estimates(wei_strat), c(769.9))
+    expect_equal(absolute_estimates(wei_agesex), c(768.2))
+    expect_equal(absolute_estimates(lnorm_age), c(742.2))
+    expect_equal(absolute_estimates(lnorm_sex), c(630.4))
+    expect_equal(absolute_estimates(exp_full), c(566.85))
+    expect_equal(absolute_estimates(exp_sex), c(566.87))
 
     # Compare # simulated individuals
     expect_equal(nrow(wei_nonstrat$simulated), 20019)
