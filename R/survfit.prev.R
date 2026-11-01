@@ -153,18 +153,20 @@ plot.survfit.prev <- function(x, ...) {
 
     gathered <- tidyr::gather(df, 'time', 'survprob', -'bootstrap')
 
+    time <- survprob <- mn <- mx <- NULL
     smooth <- gathered %>%
-        dplyr::group_by_('time') %>%
-        dplyr::summarise_(mx=lazyeval::interp(~quantile(v, 0.975), v=as.name('survprob')),
-                          mn=lazyeval::interp(~quantile(v, 0.025), v=as.name('survprob'))) %>%
-        dplyr::mutate_(time=lazyeval::interp(~as.numeric(v), v=as.name('time'))) %>%
-        dplyr::arrange_('time')
+        dplyr::group_by(time) %>%
+        dplyr::summarise(mx=quantile(survprob, 0.975),
+                         mn=quantile(survprob, 0.025),
+                         .groups='drop') %>%
+        dplyr::mutate(time=as.numeric(time)) %>%
+        dplyr::arrange(time)
 
     p <- ggplot2::ggplot() +
             ggplot2::geom_ribbon(data=smooth,
-                                 ggplot2::aes_string(x='time', ymin='mn', ymax='mx'), alpha=0.15) +
+                                 ggplot2::aes(x=time, ymin=mn, ymax=mx), alpha=0.15) +
             ggplot2::geom_line(data=data.frame(time=as.numeric(seq(num_days)), survprob=x$fullsurv),
-                               ggplot2::aes_string(x='time', y='survprob'), colour='orange', size=1) +
+                               ggplot2::aes(x=time, y=survprob), colour='orange', linewidth=1) +
             ggplot2::theme_bw() +
             ggplot2::ylim(0, 1) +
             ggplot2::labs(x="Time", y="Survival probability")

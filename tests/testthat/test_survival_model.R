@@ -114,3 +114,24 @@ test_that("predict_survival_probability produces correct survival estimates", {
                          sex=factor(sample(c('M', 'F'), 23, replace=T), levels=levels(prevsim$sex))),
               time=runif(23, 0, 4000))
 })
+
+test_that("plot.survfit.prev calculates ordered confidence limits", {
+    object <- structure(
+        list(time=1:3,
+             surv=matrix(c(0.9, 0.8, 0.7,
+                           0.8, 0.7, 0.6,
+                           0.7, 0.6, 0.5),
+                         nrow=3, byrow=TRUE),
+             fullsurv=c(0.8, 0.7, 0.6)),
+        class='survfit.prev')
+
+    result <- plot(object)
+    ribbon_data <- result$layers[[1]]$data
+
+    expect_s3_class(result, 'ggplot')
+    expect_equal(ribbon_data$time, 1:3)
+    expect_equal(ribbon_data$mn,
+                 unname(apply(object$surv, 2, quantile, 0.025)))
+    expect_equal(ribbon_data$mx,
+                 unname(apply(object$surv, 2, quantile, 0.975)))
+})

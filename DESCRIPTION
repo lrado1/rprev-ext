@@ -19,9 +19,8 @@ Depends:
     survival
 Imports:
     data.table,
-    dplyr,
-    ggplot2,
-    lazyeval,
+    dplyr (>= 1.0.0),
+    ggplot2 (>= 3.4.0),
     lubridate,
     magrittr,
     tidyr
