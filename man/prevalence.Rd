@@ -37,12 +37,12 @@ value produces an error.}
 \item{data}{A data frame containing the columns referenced by the incidence
 and survival models and by the column-name arguments.}
 
-\item{num_years_to_estimate}{Number of years of data to consider when
-estimating point prevalence, counted backwards from each index date.
-Multiple estimation periods can be supplied in a vector and are evaluated
-for every normalized index date. Incident cases before the registry start
-are simulated when an estimation period extends beyond the observed
-registry period.}
+\item{num_years_to_estimate}{Number of years preceding each index date during
+which incident cases are included in the prevalence estimate. For example,
+a value of 5 includes cases incident during the five years preceding each
+index date. Multiple estimation periods can be supplied in a vector and are
+evaluated for every normalized index date. The part of an estimation period
+before the registry start is supplied by simulation.}
 
 \item{inc_formula}{A formula specifying the columns used in the incidence process.
     The LHS should be the name of the column holding the incident dates,
@@ -148,13 +148,11 @@ survival processes, following Crouch et al. (2014) (see References).
 \details{
 The \code{index} argument accepts one date or a vector of dates. Dates are
 parsed, deduplicated, and sorted chronologically. The
-\code{num_years_to_estimate} argument defines the estimation period: the
-number of years counted backwards from each index date when estimating
-prevalence. For example, a value of 5 uses cases incident during the five
-years preceding each index date. Prevalence is estimated for every
-combination of index date and estimation period. Observed registry cases are
-counted where available, and incident cases before the registry start are
-supplied by Monte Carlo simulation.
+\code{num_years_to_estimate} argument specifies how many years before each
+index date contribute to the prevalence estimate. Prevalence is estimated
+for every combination of index date and estimation period. Observed registry
+cases are counted where available, and incident cases before the registry
+start are supplied by Monte Carlo simulation.
 
 When simulation is required, each bootstrap iteration fits the incidence and
 survival models once and draws one incident population spanning from the
