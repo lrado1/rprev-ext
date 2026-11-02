@@ -30,7 +30,7 @@ compatibility, and unit test coverage.
 
 * local Windows 11 x86_64 (build 26100), R 4.6.2 (2026-10-29 ucrt),
   `R CMD check --as-cran --no-manual`
-* win-builder Windows Server 2022 x86_64, R-devel (2026-10-31 r90820 ucrt)
+* win-builder Windows Server 2022 x86_64, R-devel (2026-11-01 r90825 ucrt)
 * R-hub Ubuntu 26.04.1 LTS x86_64, R-devel
 * R-hub macOS Sequoia 15.7.9 x86_64, R-devel
 
