@@ -30,11 +30,16 @@ compatibility, and unit test coverage.
 
 * local Windows 11 x86_64 (build 26100), R 4.6.2 (2026-10-29 ucrt),
   `R CMD check --as-cran --no-manual`
-* win-builder R-devel: pending
+* win-builder Windows Server 2022 x86_64, R-devel (2026-10-31 r90820 ucrt)
+* R-hub Ubuntu 26.04.1 LTS x86_64, R-devel
+* R-hub macOS Sequoia 15.7.9 x86_64, R-devel
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+* local Windows: 0 errors | 0 warnings | 1 note
+* win-builder R-devel: 0 errors | 0 warnings | 1 note
+* R-hub Linux R-devel: 0 errors | 0 warnings | 0 notes
+* R-hub macOS R-devel: 0 errors | 0 warnings | 0 notes
 
 The NOTE identifies this as a new submission and reports that the previous CRAN
 release was archived. The archive reason and maintenance transfer are addressed
@@ -42,11 +47,11 @@ above.
 
 The local check used `--no-manual` because the available TinyTeX 2022
 installation does not contain `makeindex` and cannot install 2026 TeX Live
-components across releases. PDF manual checking remains pending on win-builder
-R-devel.
+components across releases. The PDF and HTML manuals were successfully checked
+by win-builder R-devel.
 
-The complete `testthat` suite passes locally without failures or errors under
-R 4.6.2.
+The complete `testthat` suite passes with 230 tests and no failures, warnings,
+or skips on local Windows, R-hub Linux, and R-hub macOS.
 
 ## Downstream dependencies
 
